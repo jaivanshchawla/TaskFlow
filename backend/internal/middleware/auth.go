@@ -51,24 +51,36 @@ var (
 // Auth returns a Gin middleware that validates Clerk JWTs.
 func Auth(db *gorm.DB, cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Extract Bearer token
+		// Extract Bearer token — check Authorization header first, then query param (for WebSocket)
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			logger.Warn("Missing Authorization header", zap.String("path", c.Request.URL.Path))
+		tokenString := ""
+
+		if authHeader != "" {
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
+				tokenString = parts[1]
+			}
+		}
+
+		// Fallback: accept token from query parameter (needed for WebSocket upgrade)
+		if tokenString == "" {
+			tokenString = c.Query("token")
+		}
+
+		if tokenString == "" {
+			logger.Warn("Missing authorization token", zap.String("path", c.Request.URL.Path))
 			response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "Missing authorization token")
 			c.Abort()
 			return
 		}
 
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		// If Authorization header was present but not in Bearer format, reject
+		if authHeader != "" && tokenString == "" {
 			logger.Warn("Invalid Authorization header format", zap.String("path", c.Request.URL.Path))
 			response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "Invalid authorization format")
 			c.Abort()
 			return
 		}
-
-		tokenString := parts[1]
 
 		// Parse and validate JWT
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
