@@ -73,7 +73,7 @@ func Connect(databaseURL string) *gorm.DB {
 
 // Migrate runs auto-migration for all models in the correct order.
 func Migrate(db *gorm.DB) {
-	models_to_migrate := []struct {
+	modelsToMigrate := []struct {
 		name  string
 		model interface{}
 	}{
@@ -89,7 +89,7 @@ func Migrate(db *gorm.DB) {
 		{"TaskTemplate", &models.TaskTemplate{}},
 	}
 
-	for _, m := range models_to_migrate {
+	for _, m := range modelsToMigrate {
 		logger.Info("Migrating model", zap.String("model", m.name))
 		if err := db.AutoMigrate(m.model); err != nil {
 			logger.Fatal("Failed to migrate model",
@@ -103,7 +103,7 @@ func Migrate(db *gorm.DB) {
 	// Create additional indexes
 	createIndexes(db)
 
-	logger.Info(fmt.Sprintf("Database migration complete — %d models migrated", len(models_to_migrate)))
+	logger.Info(fmt.Sprintf("Database migration complete — %d models migrated", len(modelsToMigrate)))
 }
 
 // createIndexes creates additional database indexes not covered by GORM tags.
