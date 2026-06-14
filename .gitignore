@@ -1,0 +1,23 @@
+# Env files — NEVER commit these
+.env
+.env.local
+backend/.env
+frontend/.env.local
+
+# Build artifacts
+backend/bin/
+frontend/.next/
+frontend/node_modules/
+frontend/out/
+
+# Go
+*.exe
+*.test
+*.prof
+vendor/
+
+# Misc
+.DS_Store
+*.log
+tmp/
+backend/tmp/
