@@ -6,6 +6,7 @@ import { useUIStore } from "@/store/uiStore";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { logger } from "@/lib/logger";
 
 const CommandPalette = dynamic(() => import("@/components/layout/CommandPalette").then(m => ({ default: m.CommandPalette })), { ssr: false });
 
@@ -14,6 +15,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { setCommandPaletteOpen, setViewMode, setActiveTaskId } = useUIStore();
 
   useWebSocket();
+
+  // Warmup ping to wake Render free tier backend from cold start
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/health`, {
+      method: "GET",
+      cache: "no-store",
+    }).catch(() => {});
+    logger.info("Dashboard", "Backend warmup ping sent");
+  }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

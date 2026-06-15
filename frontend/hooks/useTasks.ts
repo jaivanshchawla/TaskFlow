@@ -145,6 +145,8 @@ export function useTaskList(filters: FilterState, page: number, perPage: number)
       );
     },
     staleTime: 30_000,
+    retry: 1,
+    retryDelay: 1000,
     placeholderData: (prev) => prev,
   });
 }
@@ -330,7 +332,9 @@ export function useStats() {
       const res = await apiFetch<{ success: boolean; data: StatsResponse }>("/api/v1/stats", { token });
       return res.data;
     },
-    staleTime: 5 * 60_000,
+    staleTime: 60_000,
+    retry: 1,
+    retryDelay: 1000,
   });
 }
 
