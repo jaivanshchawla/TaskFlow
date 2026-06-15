@@ -1,6 +1,4 @@
-import type { Appearance } from "@clerk/nextjs";
-
-export const CLERK_DARK_APPEARANCE: Appearance = {
+export const CLERK_DARK_APPEARANCE = {
   elements: {
     card: "shadow-none !bg-transparent !border-none !p-0",
     cardBox: "shadow-none !bg-transparent !border-none",
