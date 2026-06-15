@@ -342,13 +342,21 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       {/* Left Content Section */}
-      <div className="relative hidden lg:flex flex-col justify-between bg-gradient-to-br from-primary/90 via-primary to-primary/80 p-12 text-primary-foreground">
+      <div className="relative hidden lg:flex flex-col justify-between p-12 text-primary-foreground" style={{
+        background: "#0a0a0f",
+        backgroundImage: `
+          radial-gradient(ellipse at 30% 50%, rgba(124,58,237,0.35) 0%, rgba(79,46,143,0.15) 40%, #0a0a0f 70%),
+          linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)
+        `,
+        backgroundSize: "auto, 40px 40px, 40px 40px",
+      }}>
         <div className="relative z-20">
           <div className="flex items-center gap-2 text-lg font-semibold">
-            <div className="size-8 rounded-lg bg-primary-foreground/10 backdrop-blur-sm flex items-center justify-center">
-              <Sparkles className="size-4" />
+            <div className="size-8 rounded-lg backdrop-blur-sm flex items-center justify-center" style={{ background: "rgba(255,255,255,0.1)" }}>
+              <Sparkles className="size-4 text-violet-400" />
             </div>
-            <span>TaskFlow</span>
+            <span className="text-white">TaskFlow</span>
           </div>
         </div>
 
@@ -523,33 +531,46 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
           </div>
         </div>
 
-        <div className="relative z-20 flex items-center gap-8 text-sm text-primary-foreground/60">
-          <a href="#" className="hover:text-primary-foreground transition-colors">
+        <div className="relative z-20 flex items-center gap-8 text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
+          <a href="#" className="hover:text-white transition-colors">
             Privacy Policy
           </a>
-          <a href="#" className="hover:text-primary-foreground transition-colors">
+          <a href="#" className="hover:text-white transition-colors">
             Terms of Service
           </a>
-          <a href="#" className="hover:text-primary-foreground transition-colors">
+          <a href="#" className="hover:text-white transition-colors">
             Contact
           </a>
         </div>
 
-        {/* Decorative elements */}
-        <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]" />
-        <div className="absolute top-1/4 right-1/4 size-64 bg-primary-foreground/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 left-1/4 size-96 bg-primary-foreground/5 rounded-full blur-3xl" />
+        {/* Decorative soft orbs */}
+        <div className="absolute top-1/4 right-1/4 size-64 rounded-full blur-3xl" style={{ background: "rgba(124,58,237,0.15)" }} />
+        <div className="absolute bottom-1/4 left-1/4 size-96 rounded-full blur-3xl" style={{ background: "rgba(79,46,143,0.08)" }} />
       </div>
 
       {/* Right Login Section — Clerk form goes here */}
-      <div className="flex items-center justify-center p-8 bg-background">
+      <div className="flex items-center justify-center p-8" style={{
+        background: "rgba(255,255,255,0.03)",
+        backdropFilter: "blur(20px)",
+        borderLeft: "1px solid rgba(255,255,255,0.06)",
+      }}>
         <div className="w-full max-w-[420px]" ref={formContainerRef}>
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center gap-2 text-lg font-semibold mb-12">
-            <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Sparkles className="size-4 text-primary" />
+            <div className="size-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(124,58,237,0.1)" }}>
+              <Sparkles className="size-4 text-violet-500" />
             </div>
             <span>TaskFlow</span>
+          </div>
+
+          {/* Custom heading above Clerk form */}
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-white tracking-tight">
+              {mode === "sign-up" ? "Create account" : "Welcome back"}
+            </h1>
+            <p className="text-sm mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+              {mode === "sign-up" ? "Sign up for your TaskFlow workspace" : "Sign in to your TaskFlow workspace"}
+            </p>
           </div>
 
           {/* Clerk form goes here */}
