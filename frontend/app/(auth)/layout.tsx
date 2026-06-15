@@ -1,3 +1,15 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+import { AnimatedAuthShell } from "@/components/ui/animated-characters-login-page";
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  const pathname = usePathname();
+  const mode = pathname.includes("/sign-up") ? "sign-up" : "sign-in";
+
+  return (
+    <AnimatedAuthShell mode={mode}>
+      {children}
+    </AnimatedAuthShell>
+  );
 }
