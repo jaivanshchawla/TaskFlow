@@ -58,6 +58,7 @@ const Pupil = ({
     return { x, y };
   };
 
+  // eslint-disable-next-line react-hooks/refs -- intentional: reading ref for position calculation
   const pupilPosition = calculatePupilPosition();
 
   return (
@@ -138,6 +139,7 @@ const EyeBall = ({
     return { x, y };
   };
 
+  // eslint-disable-next-line react-hooks/refs -- intentional: reading ref for position calculation
   const pupilPosition = calculatePupilPosition();
 
   return (
@@ -189,10 +191,17 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
   const orangeRef = useRef<HTMLDivElement>(null);
   const formContainerRef = useRef<HTMLDivElement>(null);
 
+  // State-driven positions for React render (updated at lower frequency)
+  const [positions, setPositions] = useState({
+    purple: { faceX: 0, faceY: 0, bodySkew: 0 },
+    black: { faceX: 0, faceY: 0, bodySkew: 0 },
+    yellow: { faceX: 0, faceY: 0, bodySkew: 0 },
+    orange: { faceX: 0, faceY: 0, bodySkew: 0 },
+  });
+
   // RAF-based mouse tracking for buttery smooth eye movement
   const mouseTarget = useRef({ x: 0, y: 0 });
   const mouseCurrent = useRef({ x: 0, y: 0 });
-  const posCache = useRef({ faceX: 0, faceY: 0, bodySkew: 0 });
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
@@ -206,15 +215,7 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
       mouseCurrent.current.x += (mouseTarget.current.x - mouseCurrent.current.x) * 0.12;
       mouseCurrent.current.y += (mouseTarget.current.y - mouseCurrent.current.y) * 0.12;
 
-      const refs = [
-        { ref: purpleRef, factor: 1 },
-        { ref: blackRef, factor: 1.5 },
-        { ref: orangeRef, factor: 0.8 },
-        { ref: yellowRef, factor: 0.9 },
-      ];
-
-      // Calculate positions for all refs in one frame
-      const positions = refs.map(({ ref, factor }) => {
+      const calcPos = (ref: React.RefObject<HTMLDivElement | null>, factor: number) => {
         if (!ref.current) return { faceX: 0, faceY: 0, bodySkew: 0 };
         const rect = ref.current.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
@@ -226,9 +227,15 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
           faceY: Math.max(-10, Math.min(10, deltaY / 30)) * factor,
           bodySkew: Math.max(-6, Math.min(6, -deltaX / 120)) * factor,
         };
+      };
+
+      setPositions({
+        purple: calcPos(purpleRef, 1),
+        black: calcPos(blackRef, 1.5),
+        yellow: calcPos(yellowRef, 0.9),
+        orange: calcPos(orangeRef, 0.8),
       });
 
-      posCache.current = positions[0]!;
       rafRef.current = requestAnimationFrame(animate);
     };
 
@@ -271,28 +278,28 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
 
   useEffect(() => {
     if (isTyping) {
-      setIsLookingAtEachOther(true);
+      setIsLookingAtEachOther(true); // eslint-disable-line react-hooks/set-state-in-effect -- responding to external typing state
       const timer = setTimeout(() => setIsLookingAtEachOther(false), 800);
       return () => clearTimeout(timer);
     }
-    setIsLookingAtEachOther(false);
-  }, [isTyping]);
+    if (isLookingAtEachOther) setIsLookingAtEachOther(false);
+  }, [isTyping, isLookingAtEachOther]);
 
   useEffect(() => {
-    if (password.length > 0 && showPassword) {
-      const schedulePeek = () => {
-        const peekInterval = setTimeout(() => {
-          setIsPurplePeeking(true);
-          setTimeout(() => setIsPurplePeeking(false), 800);
-          schedulePeek();
-        }, Math.random() * 3000 + 2000);
-        return peekInterval;
-      };
-      const t = schedulePeek();
-      return () => clearTimeout(t);
+    if (!password.length || !showPassword) {
+      if (isPurplePeeking) setIsPurplePeeking(false); // eslint-disable-line react-hooks/set-state-in-effect -- resetting peek state
+      return;
     }
-    setIsPurplePeeking(false);
-  }, [password, showPassword]);
+    const schedulePeek = () => {
+      const peekInterval = setTimeout(() => {
+        setIsPurplePeeking(true);
+        setTimeout(() => setIsPurplePeeking(false), 800);
+      }, Math.random() * 3000 + 2000);
+      return peekInterval;
+    };
+    const t = schedulePeek();
+    return () => clearTimeout(t);
+  }, [password, showPassword, isPurplePeeking]);
 
   // MutationObserver to detect Clerk password visibility toggle
   useEffect(() => {
@@ -352,11 +359,6 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
     };
   }, []);
 
-  const purplePos = posCache.current;
-  const blackPos = posCache.current;
-  const yellowPos = posCache.current;
-  const orangePos = posCache.current;
-
   const passwordHasContent = password.length > 0;
 
   return (
@@ -398,8 +400,8 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
                 transform: (passwordHasContent && showPassword)
                   ? `skewX(0deg)`
                   : (isTyping || (passwordHasContent && !showPassword))
-                    ? `skewX(${(purplePos.bodySkew || 0) - 12}deg) translateX(40px)`
-                    : `skewX(${purplePos.bodySkew || 0}deg)`,
+                    ? `skewX(${(positions.purple.bodySkew || 0) - 12}deg) translateX(40px)`
+                    : `skewX(${positions.purple.bodySkew || 0}deg)`,
                 transformOrigin: 'bottom center',
               }}
             >
@@ -423,8 +425,8 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
               <div
                 className="absolute flex gap-8"
                 style={{
-                  left: (passwordHasContent && showPassword) ? `${20}px` : isLookingAtEachOther ? `${55}px` : `${45 + purplePos.faceX}px`,
-                  top: (passwordHasContent && showPassword) ? `${35}px` : isLookingAtEachOther ? `${65}px` : `${40 + purplePos.faceY}px`,
+                  left: (passwordHasContent && showPassword) ? `${20}px` : isLookingAtEachOther ? `${55}px` : `${45 + positions.purple.faceX}px`,
+                  top: (passwordHasContent && showPassword) ? `${35}px` : isLookingAtEachOther ? `${65}px` : `${40 + positions.purple.faceY}px`,
                   transition: 'left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), top 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
                 }}
               >
@@ -466,10 +468,10 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
                 transform: (passwordHasContent && showPassword)
                   ? `skewX(0deg)`
                   : isLookingAtEachOther
-                    ? `skewX(${(blackPos.bodySkew || 0) * 1.5 + 10}deg) translateX(20px)`
+                    ? `skewX(${(positions.black.bodySkew || 0) * 1.5 + 10}deg) translateX(20px)`
                     : (isTyping || (passwordHasContent && !showPassword))
-                      ? `skewX(${(blackPos.bodySkew || 0) * 1.5}deg)`
-                      : `skewX(${blackPos.bodySkew || 0}deg)`,
+                      ? `skewX(${(positions.black.bodySkew || 0) * 1.5}deg)`
+                      : `skewX(${positions.black.bodySkew || 0}deg)`,
                 transformOrigin: 'bottom center',
               }}
             >
@@ -493,8 +495,8 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
               <div
                 className="absolute flex gap-6"
                 style={{
-                  left: (passwordHasContent && showPassword) ? `${10}px` : isLookingAtEachOther ? `${32}px` : `${26 + blackPos.faceX}px`,
-                  top: (passwordHasContent && showPassword) ? `${28}px` : isLookingAtEachOther ? `${12}px` : `${32 + blackPos.faceY}px`,
+                  left: (passwordHasContent && showPassword) ? `${10}px` : isLookingAtEachOther ? `${32}px` : `${26 + positions.black.faceX}px`,
+                  top: (passwordHasContent && showPassword) ? `${28}px` : isLookingAtEachOther ? `${12}px` : `${32 + positions.black.faceY}px`,
                   transition: 'left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), top 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
                 }}
               >
@@ -533,7 +535,7 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
                 backgroundColor: '#FF9B6B',
                 borderRadius: '120px 120px 0 0',
                 transition: 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                transform: (passwordHasContent && showPassword) ? `skewX(0deg)` : `skewX(${orangePos.bodySkew || 0}deg)`,
+                transform: (passwordHasContent && showPassword) ? `skewX(0deg)` : `skewX(${positions.orange.bodySkew || 0}deg)`,
                 transformOrigin: 'bottom center',
               }}
             >
@@ -541,8 +543,8 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
               <div
                 className="absolute flex gap-8"
                 style={{
-                  left: (passwordHasContent && showPassword) ? `${50}px` : `${82 + (orangePos.faceX || 0)}px`,
-                  top: (passwordHasContent && showPassword) ? `${85}px` : `${90 + (orangePos.faceY || 0)}px`,
+                  left: (passwordHasContent && showPassword) ? `${50}px` : `${82 + (positions.orange.faceX || 0)}px`,
+                  top: (passwordHasContent && showPassword) ? `${85}px` : `${90 + (positions.orange.faceY || 0)}px`,
                   transition: 'left 0.3s ease-out, top 0.3s ease-out',
                 }}
               >
@@ -563,7 +565,7 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
                 borderRadius: '70px 70px 0 0',
                 zIndex: 4,
                 transition: 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                transform: (passwordHasContent && showPassword) ? `skewX(0deg)` : `skewX(${yellowPos.bodySkew || 0}deg)`,
+                transform: (passwordHasContent && showPassword) ? `skewX(0deg)` : `skewX(${positions.yellow.bodySkew || 0}deg)`,
                 transformOrigin: 'bottom center',
               }}
             >
@@ -571,8 +573,8 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
               <div
                 className="absolute flex gap-6"
                 style={{
-                  left: (passwordHasContent && showPassword) ? `${20}px` : `${52 + (yellowPos.faceX || 0)}px`,
-                  top: (passwordHasContent && showPassword) ? `${35}px` : `${40 + (yellowPos.faceY || 0)}px`,
+                  left: (passwordHasContent && showPassword) ? `${20}px` : `${52 + (positions.yellow.faceX || 0)}px`,
+                  top: (passwordHasContent && showPassword) ? `${35}px` : `${40 + (positions.yellow.faceY || 0)}px`,
                   transition: 'left 0.3s ease-out, top 0.3s ease-out',
                 }}
               >
@@ -583,8 +585,8 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
               <div
                 className="absolute w-20 h-[4px] bg-[#2D2D2D] rounded-full"
                 style={{
-                  left: (passwordHasContent && showPassword) ? `${10}px` : `${40 + (yellowPos.faceX || 0)}px`,
-                  top: (passwordHasContent && showPassword) ? `${88}px` : `${88 + (yellowPos.faceY || 0)}px`,
+                  left: (passwordHasContent && showPassword) ? `${10}px` : `${40 + (positions.yellow.faceX || 0)}px`,
+                  top: (passwordHasContent && showPassword) ? `${88}px` : `${88 + (positions.yellow.faceY || 0)}px`,
                   transition: 'left 0.3s ease-out, top 0.3s ease-out',
                 }}
               />

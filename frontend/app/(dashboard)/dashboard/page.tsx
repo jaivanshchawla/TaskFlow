@@ -14,7 +14,7 @@ const ChartsRow = dynamic(() => import("./charts-row").then(m => ({ default: m.C
 
 export default function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useStats();
-  const { data: tasksData, isLoading: tasksLoading } = useTaskList(
+  const { data: tasksData } = useTaskList(
     { status: [], priority: [], label_ids: [], search: "", sort_by: "updated_at", sort_dir: "desc", due_today: false, overdue: false, assigned_to_me: false },
     1,
     10
