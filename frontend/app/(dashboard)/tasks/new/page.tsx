@@ -1,10 +1,11 @@
 "use client";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { TaskForm } from "@/components/tasks/TaskForm";
 import { PAGE_VARIANTS } from "@/lib/animations";
 
-export default function NewTaskPage() {
+function NewTaskContent() {
   const searchParams = useSearchParams();
   const templateId = searchParams.get("template") ?? undefined;
 
@@ -16,5 +17,13 @@ export default function NewTaskPage() {
       </div>
       <TaskForm initialTemplateId={templateId} />
     </motion.div>
+  );
+}
+
+export default function NewTaskPage() {
+  return (
+    <Suspense>
+      <NewTaskContent />
+    </Suspense>
   );
 }
