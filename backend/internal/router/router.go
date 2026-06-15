@@ -1,6 +1,7 @@
 package router
 
 import (
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"github.com/jaivanshchawla/taskflow/internal/config"
 	"github.com/jaivanshchawla/taskflow/internal/handlers"
@@ -18,6 +19,7 @@ func SetupRouter(db *gorm.DB, hub *services.Hub, cfg *config.Config) *gin.Engine
 	r.Use(middleware.Logger())
 	r.Use(middleware.CORS(cfg.FrontendURL))
 	r.Use(middleware.RateLimit())
+	r.Use(gzip.Gzip(gzip.DefaultCompression))
 
 	// Public health endpoints (Railway needs these)
 	r.GET("/health", handlers.Health(cfg))

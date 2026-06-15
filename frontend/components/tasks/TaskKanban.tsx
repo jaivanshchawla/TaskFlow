@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { memo, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
@@ -62,7 +62,7 @@ function KanbanColumn({ status, tasks }: { status: typeof STATUS_OPTIONS[number]
   );
 }
 
-function KanbanCard({ task }: { task: Task }) {
+const KanbanCard = memo(function KanbanCard({ task }: { task: Task }) {
   const router = useRouter();
   const priorityOpt = PRIORITY_OPTIONS.find(p => p.value === task.priority);
 
@@ -113,7 +113,7 @@ function KanbanCard({ task }: { task: Task }) {
       </div>
     </motion.div>
   );
-}
+});
 
 function DragOverlayCard({ task }: { task: Task }) {
   const priorityOpt = PRIORITY_OPTIONS.find(p => p.value === task.priority);

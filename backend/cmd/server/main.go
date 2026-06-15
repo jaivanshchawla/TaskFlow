@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/jaivanshchawla/taskflow/internal/config"
 	"github.com/jaivanshchawla/taskflow/internal/database"
@@ -48,10 +50,19 @@ func main() {
 	// 8. Register all routes
 	r := router.SetupRouter(db, hub, cfg)
 
-	// 9. Start server
+	// 9. Start server with proper timeouts
 	addr := fmt.Sprintf(":%d", cfg.Port)
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           r,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
 	logger.Info("Server listening", zap.String("addr", addr))
-	if err := r.Run(addr); err != nil {
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		logger.Fatal("Server failed to start", zap.Error(err))
 	}
 }

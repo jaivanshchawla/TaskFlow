@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { memo, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MoreHorizontal, Pencil, Copy, CheckCircle, Trash2 } from "lucide-react";
 import { isAfter, isToday, format } from "date-fns";
@@ -15,7 +15,7 @@ interface TaskCardProps {
   task: Task;
 }
 
-export function TaskCard({ task }: TaskCardProps) {
+export const TaskCard = memo(function TaskCard({ task }: TaskCardProps) {
   const router = useRouter();
   const deleteTask = useDeleteTask();
   const updateTask = useUpdateTask();
@@ -186,4 +186,4 @@ export function TaskCard({ task }: TaskCardProps) {
       />
     </>
   );
-}
+});

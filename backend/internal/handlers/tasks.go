@@ -98,15 +98,39 @@ func ListTasks(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Populate computed fields
+		// Populate computed fields using batch aggregation instead of N+1
+		type counts struct {
+			TaskID            uuid.UUID
+			SubtasksCompleted int64
+			CommentsCount     int64
+			AttachmentsCount  int64
+		}
+		taskIDs := make([]uuid.UUID, len(tasks))
+		for i, t := range tasks {
+			taskIDs[i] = t.ID
+		}
+		var results []counts
+		db.Raw(`
+			SELECT t.id as task_id,
+				COALESCE(sc.cnt, 0) as subtasks_completed,
+				COALESCE(cc.cnt, 0) as comments_count,
+				COALESCE(ac.cnt, 0) as attachments_count
+			FROM tasks t
+			LEFT JOIN (SELECT task_id, COUNT(*) as cnt FROM subtasks WHERE completed = true GROUP BY task_id) sc ON sc.task_id = t.id
+			LEFT JOIN (SELECT task_id, COUNT(*) as cnt FROM comments GROUP BY task_id) cc ON cc.task_id = t.id
+			LEFT JOIN (SELECT task_id, COUNT(*) as cnt FROM attachments GROUP BY task_id) ac ON ac.task_id = t.id
+			WHERE t.id IN ? AND t.deleted_at IS NULL
+		`, taskIDs).Scan(&results)
+		countMap := make(map[uuid.UUID]counts, len(results))
+		for _, r := range results {
+			countMap[r.TaskID] = r
+		}
 		for i := range tasks {
-			var subtasksCompleted, commentsCount, attachmentsCount int64
-			db.Model(&models.Subtask{}).Where("task_id = ? AND completed = true", tasks[i].ID).Count(&subtasksCompleted)
-			db.Model(&models.Comment{}).Where("task_id = ?", tasks[i].ID).Count(&commentsCount)
-			db.Model(&models.Attachment{}).Where("task_id = ?", tasks[i].ID).Count(&attachmentsCount)
-			tasks[i].SubtasksCompleted = int(subtasksCompleted)
-			tasks[i].CommentsCount = int(commentsCount)
-			tasks[i].AttachmentsCount = int(attachmentsCount)
+			if c, ok := countMap[tasks[i].ID]; ok {
+				tasks[i].SubtasksCompleted = int(c.SubtasksCompleted)
+				tasks[i].CommentsCount = int(c.CommentsCount)
+				tasks[i].AttachmentsCount = int(c.AttachmentsCount)
+			}
 		}
 
 		logger.Info("Tasks listed", zap.String("user_id", userIDStr), zap.Int64("count", total))
@@ -196,14 +220,25 @@ func CreateTask(db *gorm.DB, hub *services.Hub) gin.HandlerFunc {
 			return
 		}
 
-		// Associate labels
+		// Bulk label INSERT instead of N individual INSERTs
 		if len(input.LabelIDs) > 0 {
+			labelIDs := []interface{}{}
 			for _, lid := range input.LabelIDs {
 				labelID, err := uuid.Parse(lid)
 				if err != nil {
 					continue
 				}
-				db.Exec("INSERT INTO task_labels (task_id, label_id) VALUES (?, ?) ON CONFLICT DO NOTHING", task.ID, labelID)
+				labelIDs = append(labelIDs, task.ID, labelID)
+			}
+			if len(labelIDs) > 0 {
+				placeholders := ""
+				for i := 0; i < len(labelIDs)/2; i++ {
+					if i > 0 {
+						placeholders += ", "
+					}
+					placeholders += "(?, ?)"
+				}
+				db.Exec("INSERT INTO task_labels (task_id, label_id) VALUES "+placeholders+" ON CONFLICT DO NOTHING", labelIDs...)
 			}
 			// Reload task with labels
 			db.Preload("Labels").First(&task, task.ID)
@@ -258,14 +293,16 @@ func GetTask(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Populate computed fields
-		var subtasksCompleted, commentsCount, attachmentsCount int64
-		db.Model(&models.Subtask{}).Where("task_id = ? AND completed = true", task.ID).Count(&subtasksCompleted)
-		db.Model(&models.Comment{}).Where("task_id = ?", task.ID).Count(&commentsCount)
-		db.Model(&models.Attachment{}).Where("task_id = ?", task.ID).Count(&attachmentsCount)
-		task.SubtasksCompleted = int(subtasksCompleted)
-		task.CommentsCount = int(commentsCount)
-		task.AttachmentsCount = int(attachmentsCount)
+		// Derive computed fields from preloaded slices (no extra queries)
+		completedCount := 0
+		for _, s := range task.Subtasks {
+			if s.Completed {
+				completedCount++
+			}
+		}
+		task.SubtasksCompleted = completedCount
+		task.CommentsCount = len(task.Comments)
+		task.AttachmentsCount = len(task.Attachments)
 
 		logger.Info("Task retrieved", zap.String("task_id", taskID), zap.String("user_id", userIDStr))
 		response.Success(c, http.StatusOK, task)
@@ -367,16 +404,31 @@ func UpdateTask(db *gorm.DB, hub *services.Hub) gin.HandlerFunc {
 		}
 
 		// Update labels
+		labelsChanged := false
 		if input.LabelIDs != nil {
 			db.Exec("DELETE FROM task_labels WHERE task_id = ?", task.ID)
-			for _, lid := range input.LabelIDs {
-				labelID, err := uuid.Parse(lid)
-				if err != nil {
-					continue
+			if len(input.LabelIDs) > 0 {
+				labelIDs := []interface{}{}
+				for _, lid := range input.LabelIDs {
+					labelID, err := uuid.Parse(lid)
+					if err != nil {
+						continue
+					}
+					labelIDs = append(labelIDs, task.ID, labelID)
 				}
-				db.Exec("INSERT INTO task_labels (task_id, label_id) VALUES (?, ?) ON CONFLICT DO NOTHING", task.ID, labelID)
+				if len(labelIDs) > 0 {
+					placeholders := ""
+					for i := 0; i < len(labelIDs)/2; i++ {
+						if i > 0 {
+							placeholders += ", "
+						}
+						placeholders += "(?, ?)"
+					}
+					db.Exec("INSERT INTO task_labels (task_id, label_id) VALUES "+placeholders+" ON CONFLICT DO NOTHING", labelIDs...)
+				}
 			}
 			services.LogActivity(db, task.ID, userID, "label_changed", "labels", nil, len(input.LabelIDs))
+			labelsChanged = true
 		}
 
 		if len(updates) > 0 {
@@ -387,8 +439,10 @@ func UpdateTask(db *gorm.DB, hub *services.Hub) gin.HandlerFunc {
 			}
 		}
 
-		// Reload task with labels
-		db.Preload("Labels").Preload("Assignee").First(&task, task.ID)
+		// Reload task only when labels changed or updates applied
+		if labelsChanged || len(updates) > 0 {
+			db.Preload("Labels").Preload("Assignee").First(&task, task.ID)
+		}
 
 		// Broadcast WS event
 		hub.Broadcast(&services.Event{
@@ -561,33 +615,45 @@ func BulkTaskAction(db *gorm.DB, hub *services.Hub) gin.HandlerFunc {
 		}
 
 		affected := 0
-		for _, task := range tasks {
-			switch input.Action {
-			case "delete":
-				db.Delete(&task)
+		// Batch operations where possible
+		switch input.Action {
+		case "delete":
+			db.Where("id IN ?", taskIDs).Delete(&models.Task{})
+			for _, task := range tasks {
 				services.LogActivity(db, task.ID, userID, "task_deleted", "", nil, nil)
-				hub.Broadcast(&services.Event{Type: "task:deleted", Payload: gin.H{"id": task.ID.String()}, UserID: userIDStr}, userIDStr)
-		case "update_status":
-			oldStatus := task.Status
-			db.Model(&task).Update("status", input.Payload.Status)
-			services.LogActivity(db, task.ID, userID, "status_changed", "status", oldStatus, input.Payload.Status)
-			db.Preload("Labels").First(&task, task.ID)
-			hub.Broadcast(&services.Event{Type: "task:updated", Payload: task, UserID: userIDStr}, userIDStr)
-		case "update_priority":
-			oldPriority := task.Priority
-			db.Model(&task).Update("priority", input.Payload.Priority)
-			services.LogActivity(db, task.ID, userID, "priority_changed", "priority", oldPriority, input.Payload.Priority)
-			db.Preload("Labels").First(&task, task.ID)
-			hub.Broadcast(&services.Event{Type: "task:updated", Payload: task, UserID: userIDStr}, userIDStr)
-			case "add_label":
-				labelID, err := uuid.Parse(input.Payload.LabelID)
-				if err == nil {
-					db.Exec("INSERT INTO task_labels (task_id, label_id) VALUES (?, ?) ON CONFLICT DO NOTHING", task.ID, labelID)
-					services.LogActivity(db, task.ID, userID, "label_added", "labels", nil, labelID.String())
-				}
 			}
-			affected++
+			affected = len(tasks)
+		case "update_status":
+			db.Model(&models.Task{}).Where("id IN ?", taskIDs).Update("status", input.Payload.Status)
+			for _, task := range tasks {
+				services.LogActivity(db, task.ID, userID, "status_changed", "status", task.Status, input.Payload.Status)
+			}
+			affected = len(tasks)
+		case "update_priority":
+			db.Model(&models.Task{}).Where("id IN ?", taskIDs).Update("priority", input.Payload.Priority)
+			for _, task := range tasks {
+				services.LogActivity(db, task.ID, userID, "priority_changed", "priority", task.Priority, input.Payload.Priority)
+			}
+			affected = len(tasks)
+		case "add_label":
+			labelID, err := uuid.Parse(input.Payload.LabelID)
+			if err == nil {
+				args := []interface{}{}
+				placeholders := ""
+				for i, tid := range taskIDs {
+					if i > 0 {
+						placeholders += ", "
+					}
+					placeholders += "(?, ?)"
+					args = append(args, tid, labelID)
+				}
+				db.Exec("INSERT INTO task_labels (task_id, label_id) VALUES "+placeholders+" ON CONFLICT DO NOTHING", args...)
+				affected = len(tasks)
+			}
 		}
+
+		// Single broadcast after batch operation
+		hub.Broadcast(&services.Event{Type: input.Action, Payload: gin.H{"affected": affected}, UserID: userIDStr}, userIDStr)
 
 		logger.Info("Bulk action completed", zap.String("action", input.Action), zap.Int("affected", affected))
 		response.Success(c, http.StatusOK, gin.H{"affected": affected})

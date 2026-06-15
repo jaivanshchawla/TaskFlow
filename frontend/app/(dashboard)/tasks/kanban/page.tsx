@@ -1,9 +1,20 @@
 "use client";
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { TaskKanban } from "@/components/tasks/TaskKanban";
 import { PAGE_VARIANTS } from "@/lib/animations";
+
+const TaskKanban = dynamic(() => import("@/components/tasks/TaskKanban").then(m => ({ default: m.TaskKanban })), {
+  ssr: false,
+  loading: () => (
+    <div className="grid grid-cols-5 gap-4">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="shimmer h-96 rounded-xl" style={{ border: "1px solid var(--border-subtle)" }} />
+      ))}
+    </div>
+  ),
+});
 
 export default function KanbanPage() {
   return (

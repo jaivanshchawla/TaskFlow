@@ -40,6 +40,7 @@ func Connect(databaseURL string) *gorm.DB {
 			sqlDB.SetMaxOpenConns(25)
 			sqlDB.SetMaxIdleConns(10)
 			sqlDB.SetConnMaxLifetime(5 * time.Minute)
+			sqlDB.SetConnMaxIdleTime(3 * time.Minute)
 
 			// Verify connection
 			if err := sqlDB.Ping(); err != nil {
@@ -108,15 +109,25 @@ func Migrate(db *gorm.DB) {
 
 // createIndexes creates additional database indexes not covered by GORM tags.
 func createIndexes(db *gorm.DB) {
-	indexes := []struct {
-		name  string
-		query string
-	}{
-		{"idx_tasks_title_search", "CREATE INDEX IF NOT EXISTS idx_tasks_title_search ON tasks USING gin(to_tsvector('english', title))"},
-		{"idx_tasks_overdue", "CREATE INDEX IF NOT EXISTS idx_tasks_overdue ON tasks(due_date) WHERE deleted_at IS NULL AND status NOT IN ('done', 'cancelled')"},
-		{"idx_activity_created_at_desc", "CREATE INDEX IF NOT EXISTS idx_activity_created_at ON activity_logs(created_at DESC)"},
-		{"idx_labels_user_name", "CREATE UNIQUE INDEX IF NOT EXISTS idx_labels_user_name ON labels(user_id, name)"},
-	}
+		indexes := []struct {
+			name  string
+			query string
+		}{
+			{"idx_tasks_title_search", "CREATE INDEX IF NOT EXISTS idx_tasks_title_search ON tasks USING gin(to_tsvector('english', title))"},
+			{"idx_tasks_overdue", "CREATE INDEX IF NOT EXISTS idx_tasks_overdue ON tasks(due_date) WHERE deleted_at IS NULL AND status NOT IN ('done', 'cancelled')"},
+			{"idx_activity_created_at_desc", "CREATE INDEX IF NOT EXISTS idx_activity_created_at ON activity_logs(created_at DESC)"},
+			{"idx_labels_user_name", "CREATE UNIQUE INDEX IF NOT EXISTS idx_labels_user_name ON labels(user_id, name)"},
+			{"idx_tasks_user_status", "CREATE INDEX IF NOT EXISTS idx_tasks_user_status ON tasks(user_id, status) WHERE deleted_at IS NULL"},
+			{"idx_tasks_user_priority", "CREATE INDEX IF NOT EXISTS idx_tasks_user_priority ON tasks(user_id, priority) WHERE deleted_at IS NULL"},
+			{"idx_tasks_user_due_date", "CREATE INDEX IF NOT EXISTS idx_tasks_user_due_date ON tasks(user_id, due_date) WHERE deleted_at IS NULL"},
+			{"idx_tasks_user_assigned", "CREATE INDEX IF NOT EXISTS idx_tasks_user_assigned ON tasks(user_id, assigned_to) WHERE deleted_at IS NULL"},
+			{"idx_comments_task_id", "CREATE INDEX IF NOT EXISTS idx_comments_task_id ON comments(task_id)"},
+			{"idx_subtasks_task_id", "CREATE INDEX IF NOT EXISTS idx_subtasks_task_id ON subtasks(task_id)"},
+			{"idx_attachments_task_id", "CREATE INDEX IF NOT EXISTS idx_attachments_task_id ON attachments(task_id)"},
+			{"idx_activity_logs_user_id", "CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id)"},
+			{"idx_labels_user_id", "CREATE INDEX IF NOT EXISTS idx_labels_user_id ON labels(user_id)"},
+			{"idx_templates_user_id", "CREATE INDEX IF NOT EXISTS idx_templates_user_id ON task_templates(user_id)"},
+		}
 
 	for _, idx := range indexes {
 		logger.Debug("Creating index", zap.String("name", idx.name))

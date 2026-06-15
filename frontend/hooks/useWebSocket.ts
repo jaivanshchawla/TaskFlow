@@ -6,7 +6,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useWSStore } from "@/store/wsStore";
 import { taskKeys, statsKeys } from "./useTasks";
 import { logger } from "@/lib/logger";
-import { toast } from "sonner";
 import { Task, WSEvent } from "@/types";
 
 const WS_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080").replace("http", "ws");
@@ -67,29 +66,30 @@ export function useWebSocket() {
           case "task:created":
             queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
             queryClient.invalidateQueries({ queryKey: statsKeys.all });
-            toast.info("New task created");
             break;
           case "task:updated": {
             const task = data.payload as Task;
             queryClient.invalidateQueries({ queryKey: taskKeys.detail(task.id) });
-            queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
-            if (data.user_id !== "") {
-              toast.info("Task updated");
-            }
             break;
           }
           case "task:deleted":
             queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
             queryClient.invalidateQueries({ queryKey: statsKeys.all });
-            toast.info("Task deleted");
             break;
-          case "comment:added":
-            queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
-            toast.info("New comment added");
+          case "comment:added": {
+            const updatedTask = data.payload as Task;
+            if (updatedTask?.id) {
+              queryClient.invalidateQueries({ queryKey: taskKeys.detail(updatedTask.id) });
+            }
             break;
-          case "subtask:updated":
-            queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
+          }
+          case "subtask:updated": {
+            const subtaskTask = data.payload as Task;
+            if (subtaskTask?.id) {
+              queryClient.invalidateQueries({ queryKey: taskKeys.detail(subtaskTask.id) });
+            }
             break;
+          }
         }
       } catch (e) {
         logger.error("WebSocket", "Failed to parse event", { error: String(e) });

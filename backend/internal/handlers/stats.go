@@ -6,7 +6,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/jaivanshchawla/taskflow/internal/models"
 	"github.com/jaivanshchawla/taskflow/pkg/logger"
 	"github.com/jaivanshchawla/taskflow/pkg/response"
 	"go.uber.org/zap"
@@ -24,83 +23,77 @@ func GetStats(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		stats := gin.H{}
-
-		// Total tasks
-		var totalTasks int64
-		db.Model(&models.Task{}).Where("user_id = ? AND deleted_at IS NULL", userID).Count(&totalTasks)
-		stats["total_tasks"] = totalTasks
-
-		// Completed today
 		today := time.Now().Truncate(24 * time.Hour)
-		var completedToday int64
-		db.Model(&models.Task{}).Where(
-			"user_id = ? AND status = ? AND updated_at >= ? AND deleted_at IS NULL",
-			userID, "done", today,
-		).Count(&completedToday)
-		stats["completed_today"] = completedToday
-
-		// Due today
-		var dueToday int64
 		tomorrow := today.Add(24 * time.Hour)
-		db.Model(&models.Task{}).Where(
-			"user_id = ? AND due_date >= ? AND due_date < ? AND deleted_at IS NULL",
-			userID, today, tomorrow,
-		).Count(&dueToday)
-		stats["due_today"] = dueToday
-
-		// Overdue
-		var overdue int64
-		db.Model(&models.Task{}).Where(
-			"user_id = ? AND due_date < ? AND status NOT IN (?, ?) AND deleted_at IS NULL",
-			userID, today, "done", "cancelled",
-		).Count(&overdue)
-		stats["overdue"] = overdue
-
-		// Completion rate (last 7 days)
 		sevenDaysAgo := time.Now().AddDate(0, 0, -7)
-		var completed7d int64
-		db.Model(&models.Task{}).Where(
-			"user_id = ? AND status = ? AND updated_at >= ? AND deleted_at IS NULL",
-			userID, "done", sevenDaysAgo,
-		).Count(&completed7d)
-		var total7d int64
-		db.Model(&models.Task{}).Where(
-			"user_id = ? AND created_at >= ? AND deleted_at IS NULL",
+
+		baseQuery := "user_id = ? AND deleted_at IS NULL"
+
+		// Single query for total, completed_today, due_today, overdue, completed_7d, total_7d
+		var result struct {
+			TotalTasks     int64
+			CompletedToday int64
+			DueToday       int64
+			Overdue        int64
+			Completed7d    int64
+			Total7d        int64
+		}
+		db.Raw(`
+			SELECT
+				COUNT(*) FILTER (WHERE `+baseQuery+`) as total_tasks,
+				COUNT(*) FILTER (WHERE `+baseQuery+` AND status = 'done' AND updated_at >= ?) as completed_today,
+				COUNT(*) FILTER (WHERE `+baseQuery+` AND due_date >= ? AND due_date < ?) as due_today,
+				COUNT(*) FILTER (WHERE `+baseQuery+` AND due_date < ? AND status NOT IN ('done','cancelled')) as overdue,
+				COUNT(*) FILTER (WHERE `+baseQuery+` AND status = 'done' AND updated_at >= ?) as completed_7d,
+				COUNT(*) FILTER (WHERE `+baseQuery+` AND created_at >= ?) as total_7d
+			FROM tasks
+			WHERE `+baseQuery,
+			userID, userID, userID, today,
+			userID, userID, tomorrow,
+			userID, today,
 			userID, sevenDaysAgo,
-		).Count(&total7d)
+			userID, sevenDaysAgo,
+			userID,
+		).Scan(&result)
+
+		stats["total_tasks"] = result.TotalTasks
+		stats["completed_today"] = result.CompletedToday
+		stats["due_today"] = result.DueToday
+		stats["overdue"] = result.Overdue
+
 		completionRate := float64(0)
-		if total7d > 0 {
-			completionRate = float64(completed7d) / float64(total7d)
+		if result.Total7d > 0 {
+			completionRate = float64(result.Completed7d) / float64(result.Total7d)
 		}
 		stats["completion_rate_7d"] = completionRate
 
-		// By status
-		byStatus := map[string]int64{}
-		statuses := []string{"todo", "in_progress", "in_review", "done", "cancelled"}
-		for _, status := range statuses {
-			var count int64
-			db.Model(&models.Task{}).Where(
-				"user_id = ? AND status = ? AND deleted_at IS NULL",
-				userID, status,
-			).Count(&count)
-			byStatus[status] = count
+		// Single GROUP BY query for status counts
+		type statusCount struct {
+			Status string
+			Count  int64
+		}
+		var statusCounts []statusCount
+		db.Raw("SELECT status, COUNT(*) as count FROM tasks WHERE "+baseQuery+" GROUP BY status", userID).Scan(&statusCounts)
+		byStatus := map[string]int64{"todo": 0, "in_progress": 0, "in_review": 0, "done": 0, "cancelled": 0}
+		for _, sc := range statusCounts {
+			byStatus[sc.Status] = sc.Count
 		}
 		stats["by_status"] = byStatus
 
-		// By priority
-		byPriority := map[string]int64{}
-		priorities := []string{"urgent", "high", "medium", "low"}
-		for _, priority := range priorities {
-			var count int64
-			db.Model(&models.Task{}).Where(
-				"user_id = ? AND priority = ? AND deleted_at IS NULL",
-				userID, priority,
-			).Count(&count)
-			byPriority[priority] = count
+		// Single GROUP BY query for priority counts
+		type priorityCount struct {
+			Priority string
+			Count    int64
+		}
+		var priorityCounts []priorityCount
+		db.Raw("SELECT priority, COUNT(*) as count FROM tasks WHERE "+baseQuery+" GROUP BY priority", userID).Scan(&priorityCounts)
+		byPriority := map[string]int64{"urgent": 0, "high": 0, "medium": 0, "low": 0}
+		for _, pc := range priorityCounts {
+			byPriority[pc.Priority] = pc.Count
 		}
 		stats["by_priority"] = byPriority
 
-		logger.Info("Stats retrieved", zap.String("user_id", userIDStr), zap.Int64("total_tasks", totalTasks))
+		logger.Debug("Stats retrieved", zap.String("user_id", userIDStr), zap.Int64("total_tasks", result.TotalTasks))
 		response.Success(c, http.StatusOK, stats)
 	}
 }
