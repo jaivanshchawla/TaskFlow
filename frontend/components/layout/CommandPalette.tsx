@@ -5,21 +5,21 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import {
   LayoutDashboard, CheckSquare, Kanban, Calendar,
-  Tag, FileDown, Filter, ArrowRight,
+  Tag, FileDown, ArrowRight,
 } from "lucide-react";
 import { PlusIcon } from "@/components/ui/plus";
 import { SearchIcon } from "@/components/ui/search";
 import { XIcon } from "@/components/ui/x";
 import { CopyIcon } from "@/components/ui/copy";
 import { useUIStore } from "@/store/uiStore";
-import { MODAL_VARIANTS, EASE_OUT_EXPO } from "@/lib/animations";
+import { MODAL_VARIANTS } from "@/lib/animations";
 import { logger } from "@/lib/logger";
 import { useSearchTasks } from "@/hooks/useTasks";
 import { STATUS_OPTIONS } from "@/lib/constants";
 
 export function CommandPalette() {
   const router = useRouter();
-  const { commandPaletteOpen, setCommandPaletteOpen, setViewMode } = useUIStore();
+  const { commandPaletteOpen, setCommandPaletteOpen } = useUIStore();
   const [search, setSearch] = useState("");
   const { data: searchResults } = useSearchTasks(search, commandPaletteOpen && search.length > 1);
 

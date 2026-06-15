@@ -9,7 +9,6 @@ import { Loader2 } from "lucide-react";
 import { createTaskSchema, type CreateTaskInput } from "@/lib/schemas";
 import { useCreateTask, useUpdateTask, useTask, useLabels, useTemplates, useCreateTemplate } from "@/hooks/useTasks";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "@/lib/constants";
-import { logger } from "@/lib/logger";
 
 interface TaskFormProps {
   taskId?: string;
@@ -110,7 +109,6 @@ export function TaskForm({ taskId, initialTemplateId, onSuccess }: TaskFormProps
     setValue("label_ids", next, { shouldValidate: true });
   };
 
-  const currentStatus = watch("status");
   const currentPriority = watch("priority");
 
   return (

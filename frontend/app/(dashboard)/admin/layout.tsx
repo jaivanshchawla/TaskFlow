@@ -1,6 +1,5 @@
 "use client";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useUIStore } from "@/store/uiStore";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
@@ -8,7 +7,6 @@ import { CommandPalette } from "@/components/layout/CommandPalette";
 import { useWebSocket } from "@/hooks/useWebSocket";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
   const { setCommandPaletteOpen, setActiveTaskId } = useUIStore();
   useWebSocket();
 

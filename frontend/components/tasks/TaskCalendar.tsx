@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays,
-  addMonths, subMonths, isSameMonth, isToday, format, isSameDay,
+  addMonths, subMonths, isSameMonth, isToday, format,
 } from "date-fns";
 import { useTaskList } from "@/hooks/useTasks";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "@/lib/constants";
-import { PAGE_VARIANTS, SPRING_SOFT } from "@/lib/animations";
+
 import type { Task } from "@/types";
 
 function CalendarDay({ date, currentMonth, tasks, onClick }: {

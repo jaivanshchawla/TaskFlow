@@ -6,7 +6,7 @@ import { useLabels, useCreateLabel, useUpdateLabel, useDeleteLabel } from "@/hoo
 import { createLabelSchema } from "@/lib/schemas";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { PAGE_VARIANTS, LIST_CONTAINER, LIST_ITEM, SPRING_SOFT } from "@/lib/animations";
+import { PAGE_VARIANTS, LIST_CONTAINER, LIST_ITEM } from "@/lib/animations";
 import { StatCardSkeleton } from "@/components/shared/SkeletonLoader";
 import { logger } from "@/lib/logger";
 

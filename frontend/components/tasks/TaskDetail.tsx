@@ -11,13 +11,12 @@ import { formatDistanceToNow, format } from "date-fns";
 import {
   useTask, useUpdateTask, useDeleteTask, useSubtasks, useCreateSubtask,
   useUpdateSubtask, useDeleteSubtask, useComments, useCreateComment,
-  useDeleteComment, useAttachments, useLabels,
+  useDeleteComment, useAttachments,
 } from "@/hooks/useTasks";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "@/lib/constants";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { DRAWER_VARIANTS, SPRING_SNAPPY } from "@/lib/animations";
-import { logger } from "@/lib/logger";
-import type { Task, Subtask, Comment, ActivityLog } from "@/types";
+import { DRAWER_VARIANTS } from "@/lib/animations";
+import type { Task, Subtask } from "@/types";
 
 const ACTIVITY_ICONS: Record<string, React.ElementType> = {
   task_created: Plus,
@@ -52,7 +51,6 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
   const createComment = useCreateComment(taskId);
   const deleteComment = useDeleteComment(taskId);
   const { data: attachments = [] } = useAttachments(taskId);
-  const { data: labels } = useLabels();
 
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState("");
@@ -123,9 +121,6 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
   }
 
   if (!task) return null;
-
-  const statusOpt = STATUS_OPTIONS.find(s => s.value === task.status);
-  const priorityOpt = PRIORITY_OPTIONS.find(p => p.value === task.priority);
 
   return (
     <>

@@ -1,5 +1,5 @@
 "use client";
-import { use, useState } from "react";
+import { use } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { TaskDetail } from "@/components/tasks/TaskDetail";

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, SlidersHorizontal, ChevronDown, ArrowUpDown, Save, Trash2 } from "lucide-react";
 import { useTaskStore } from "@/store/taskStore";
@@ -7,6 +7,7 @@ import { useLabels } from "@/hooks/useTasks";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS, SORT_OPTIONS } from "@/lib/constants";
 import { SPRING_SOFT } from "@/lib/animations";
 import type { FilterState } from "@/types";
+import type { Label } from "@/types";
 
 interface SavedFilter {
   name: string;
@@ -106,6 +107,173 @@ function MultiSelectDropdown({
   );
 }
 
+interface FilterBarProps {
+  activeFilters: FilterState;
+  setFilter: (key: keyof FilterState, value: FilterState[keyof FilterState]) => void;
+  toggleInArray: (key: "status" | "priority" | "label_ids", value: string) => void;
+  labels: Label[] | undefined;
+  activeCount: number;
+  showSaveInput: boolean;
+  setShowSaveInput: (show: boolean) => void;
+  resetFilters: () => void;
+  savedFilters: SavedFilter[];
+}
+
+function FilterBar({
+  activeFilters,
+  setFilter,
+  toggleInArray,
+  labels,
+  activeCount,
+  showSaveInput,
+  setShowSaveInput,
+  resetFilters,
+  savedFilters,
+}: FilterBarProps) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="relative flex-1 min-w-[180px] max-w-xs">
+        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
+        <input
+          type="text"
+          value={activeFilters.search}
+          onChange={(e) => setFilter("search", e.target.value)}
+          placeholder="Search..."
+          className="w-full pl-8 pr-2 py-1.5 rounded-lg text-xs outline-none"
+          style={{
+            background: "var(--bg-elevated)",
+            border: "1px solid var(--border-subtle)",
+            color: "var(--text-primary)",
+          }}
+        />
+      </div>
+
+      <MultiSelectDropdown
+        label="Status"
+        options={STATUS_OPTIONS}
+        selected={activeFilters.status}
+        onToggle={(v) => toggleInArray("status", v)}
+      />
+
+      <MultiSelectDropdown
+        label="Priority"
+        options={PRIORITY_OPTIONS}
+        selected={activeFilters.priority}
+        onToggle={(v) => toggleInArray("priority", v)}
+      />
+
+      <MultiSelectDropdown
+        label="Labels"
+        options={(labels ?? []).map(l => ({ value: l.id, label: l.name, color: l.color }))}
+        selected={activeFilters.label_ids}
+        onToggle={(v) => toggleInArray("label_ids", v)}
+        renderOption={(opt) => (
+          <>
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: opt.color }} />
+            <span className="flex-1">{opt.label}</span>
+            {activeFilters.label_ids.includes(opt.value) && <span className="text-violet-400">✓</span>}
+          </>
+        )}
+      />
+
+      <button
+        onClick={() => setFilter("due_today", !activeFilters.due_today)}
+        className="px-2.5 py-1.5 rounded-lg text-xs transition-colors"
+        style={{
+          background: activeFilters.due_today ? "rgba(249,115,22,0.1)" : "var(--bg-elevated)",
+          border: `1px solid ${activeFilters.due_today ? "rgba(249,115,22,0.3)" : "var(--border-subtle)"}`,
+          color: activeFilters.due_today ? "#f97316" : "var(--text-secondary)",
+        }}
+      >
+        Due today
+      </button>
+
+      <button
+        onClick={() => setFilter("overdue", !activeFilters.overdue)}
+        className="px-2.5 py-1.5 rounded-lg text-xs transition-colors"
+        style={{
+          background: activeFilters.overdue ? "rgba(239,68,68,0.1)" : "var(--bg-elevated)",
+          border: `1px solid ${activeFilters.overdue ? "rgba(239,68,68,0.3)" : "var(--border-subtle)"}`,
+          color: activeFilters.overdue ? "#ef4444" : "var(--text-secondary)",
+        }}
+      >
+        Overdue
+      </button>
+
+      <button
+        onClick={() => setFilter("assigned_to_me", !activeFilters.assigned_to_me)}
+        className="px-2.5 py-1.5 rounded-lg text-xs transition-colors"
+        style={{
+          background: activeFilters.assigned_to_me ? "rgba(124,58,237,0.1)" : "var(--bg-elevated)",
+          border: `1px solid ${activeFilters.assigned_to_me ? "var(--accent)" : "var(--border-subtle)"}`,
+          color: activeFilters.assigned_to_me ? "var(--accent-bright)" : "var(--text-secondary)",
+        }}
+      >
+        Assigned to me
+      </button>
+
+      <div className="relative">
+        <select
+          value={activeFilters.sort_by}
+          onChange={(e) => setFilter("sort_by", e.target.value)}
+          className="appearance-none pl-2 pr-6 py-1.5 rounded-lg text-xs outline-none cursor-pointer"
+          style={{
+            background: "var(--bg-elevated)",
+            border: "1px solid var(--border-subtle)",
+            color: "var(--text-secondary)",
+          }}
+        >
+          {SORT_OPTIONS.map(o => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "var(--text-muted)" }} />
+      </div>
+
+      <button
+        onClick={() => setFilter("sort_dir", activeFilters.sort_dir === "asc" ? "desc" : "asc")}
+        className="p-1.5 rounded-lg transition-colors"
+        style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+      >
+        <ArrowUpDown size={12} />
+      </button>
+
+      {activeCount > 0 && (
+        <button
+          onClick={() => setShowSaveInput(!showSaveInput)}
+          className="p-1.5 rounded-lg transition-colors"
+          style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", color: "var(--text-muted)" }}
+          title="Save this filter"
+        >
+          <Save size={12} />
+        </button>
+      )}
+
+      {activeCount > 0 && (
+        <button
+          onClick={resetFilters}
+          className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
+          style={{ color: "#ef4444" }}
+        >
+          Clear all
+        </button>
+      )}
+
+      {savedFilters.length > 0 && (
+        <div className="relative">
+          <button
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition-colors"
+            style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", color: "var(--text-muted)" }}
+          >
+            Saved
+            <ChevronDown size={10} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function TaskFilters() {
   const { activeFilters, setFilter, resetFilters } = useTaskStore();
   const { data: labels } = useLabels();
@@ -178,161 +346,8 @@ export function TaskFilters() {
     localStorage.setItem("taskflow-saved-filters", JSON.stringify(updated));
   };
 
-  const FilterBar = () => (
-    <div className="flex flex-wrap items-center gap-2">
-      {/* Search */}
-      <div className="relative flex-1 min-w-[180px] max-w-xs">
-        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
-        <input
-          type="text"
-          value={activeFilters.search}
-          onChange={(e) => setFilter("search", e.target.value)}
-          placeholder="Search..."
-          className="w-full pl-8 pr-2 py-1.5 rounded-lg text-xs outline-none"
-          style={{
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border-subtle)",
-            color: "var(--text-primary)",
-          }}
-        />
-      </div>
-
-      {/* Status */}
-      <MultiSelectDropdown
-        label="Status"
-        options={STATUS_OPTIONS}
-        selected={activeFilters.status}
-        onToggle={(v) => toggleInArray("status", v)}
-      />
-
-      {/* Priority */}
-      <MultiSelectDropdown
-        label="Priority"
-        options={PRIORITY_OPTIONS}
-        selected={activeFilters.priority}
-        onToggle={(v) => toggleInArray("priority", v)}
-      />
-
-      {/* Labels */}
-      <MultiSelectDropdown
-        label="Labels"
-        options={(labels ?? []).map(l => ({ value: l.id, label: l.name, color: l.color }))}
-        selected={activeFilters.label_ids}
-        onToggle={(v) => toggleInArray("label_ids", v)}
-        renderOption={(opt) => (
-          <>
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: opt.color }} />
-            <span className="flex-1">{opt.label}</span>
-            {activeFilters.label_ids.includes(opt.value) && <span className="text-violet-400">✓</span>}
-          </>
-        )}
-      />
-
-      {/* Toggles */}
-      <button
-        onClick={() => setFilter("due_today", !activeFilters.due_today)}
-        className="px-2.5 py-1.5 rounded-lg text-xs transition-colors"
-        style={{
-          background: activeFilters.due_today ? "rgba(249,115,22,0.1)" : "var(--bg-elevated)",
-          border: `1px solid ${activeFilters.due_today ? "rgba(249,115,22,0.3)" : "var(--border-subtle)"}`,
-          color: activeFilters.due_today ? "#f97316" : "var(--text-secondary)",
-        }}
-      >
-        Due today
-      </button>
-
-      <button
-        onClick={() => setFilter("overdue", !activeFilters.overdue)}
-        className="px-2.5 py-1.5 rounded-lg text-xs transition-colors"
-        style={{
-          background: activeFilters.overdue ? "rgba(239,68,68,0.1)" : "var(--bg-elevated)",
-          border: `1px solid ${activeFilters.overdue ? "rgba(239,68,68,0.3)" : "var(--border-subtle)"}`,
-          color: activeFilters.overdue ? "#ef4444" : "var(--text-secondary)",
-        }}
-      >
-        Overdue
-      </button>
-
-      <button
-        onClick={() => setFilter("assigned_to_me", !activeFilters.assigned_to_me)}
-        className="px-2.5 py-1.5 rounded-lg text-xs transition-colors"
-        style={{
-          background: activeFilters.assigned_to_me ? "rgba(124,58,237,0.1)" : "var(--bg-elevated)",
-          border: `1px solid ${activeFilters.assigned_to_me ? "var(--accent)" : "var(--border-subtle)"}`,
-          color: activeFilters.assigned_to_me ? "var(--accent-bright)" : "var(--text-secondary)",
-        }}
-      >
-        Assigned to me
-      </button>
-
-      {/* Sort */}
-      <div className="relative">
-        <select
-          value={activeFilters.sort_by}
-          onChange={(e) => setFilter("sort_by", e.target.value)}
-          className="appearance-none pl-2 pr-6 py-1.5 rounded-lg text-xs outline-none cursor-pointer"
-          style={{
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border-subtle)",
-            color: "var(--text-secondary)",
-          }}
-        >
-          {SORT_OPTIONS.map(o => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-        <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "var(--text-muted)" }} />
-      </div>
-
-      <button
-        onClick={() => setFilter("sort_dir", activeFilters.sort_dir === "asc" ? "desc" : "asc")}
-        className="p-1.5 rounded-lg transition-colors"
-        style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
-      >
-        <ArrowUpDown size={12} />
-      </button>
-
-      {/* Save */}
-      {activeCount > 0 && (
-        <button
-          onClick={() => setShowSaveInput(!showSaveInput)}
-          className="p-1.5 rounded-lg transition-colors"
-          style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", color: "var(--text-muted)" }}
-          title="Save this filter"
-        >
-          <Save size={12} />
-        </button>
-      )}
-
-      {/* Clear */}
-      {activeCount > 0 && (
-        <button
-          onClick={resetFilters}
-          className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
-          style={{ color: "#ef4444" }}
-        >
-          Clear all
-        </button>
-      )}
-
-      {/* Saved filters */}
-      {savedFilters.length > 0 && (
-        <div className="relative">
-          <button
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition-colors"
-            style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", color: "var(--text-muted)" }}
-          >
-            Saved
-            <ChevronDown size={10} />
-          </button>
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <>
-      {/* Save input modal */}
       <AnimatePresence>
         {showSaveInput && (
           <motion.div
@@ -362,7 +377,6 @@ export function TaskFilters() {
         )}
       </AnimatePresence>
 
-      {/* Saved filters list */}
       {savedFilters.length > 0 && (
         <div className="flex items-center gap-2 mb-3">
           {savedFilters.map((f) => (
@@ -382,12 +396,20 @@ export function TaskFilters() {
         </div>
       )}
 
-      {/* Desktop */}
       <div className="hidden md:block">
-        <FilterBar />
+        <FilterBar
+          activeFilters={activeFilters}
+          setFilter={setFilter}
+          toggleInArray={toggleInArray}
+          labels={labels}
+          activeCount={activeCount}
+          showSaveInput={showSaveInput}
+          setShowSaveInput={setShowSaveInput}
+          resetFilters={resetFilters}
+          savedFilters={savedFilters}
+        />
       </div>
 
-      {/* Mobile */}
       <div className="md:hidden">
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
@@ -406,14 +428,23 @@ export function TaskFilters() {
               className="overflow-hidden mt-2"
             >
               <div className="p-3 rounded-xl space-y-3" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)" }}>
-                <FilterBar />
+                <FilterBar
+                  activeFilters={activeFilters}
+                  setFilter={setFilter}
+                  toggleInArray={toggleInArray}
+                  labels={labels}
+                  activeCount={activeCount}
+                  showSaveInput={showSaveInput}
+                  setShowSaveInput={setShowSaveInput}
+                  resetFilters={resetFilters}
+                  savedFilters={savedFilters}
+                />
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Active chips */}
       <AnimatePresence>
         {chips.length > 0 && (
           <motion.div

@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import React from "react";
 import { TaskFilters } from "@/components/tasks/TaskFilters";
 import { mockLabel } from "../fixtures";
@@ -43,12 +42,16 @@ vi.mock("framer-motion", () => {
     return filtered;
   }
   function createMotion(tag: string) {
-    return ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) =>
+    const Component = ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) =>
       React.createElement(tag, filterProps(props), children);
+    Component.displayName = `motion.${tag}`;
+    return Component;
   }
+  const AnimatePresence = ({ children }: React.PropsWithChildren) => React.createElement(React.Fragment, null, children);
+  AnimatePresence.displayName = "AnimatePresence";
   return {
     motion: { div: createMotion("div"), span: createMotion("span"), button: createMotion("button") },
-    AnimatePresence: ({ children }: React.PropsWithChildren) => React.createElement(React.Fragment, null, children),
+    AnimatePresence,
   };
 });
 

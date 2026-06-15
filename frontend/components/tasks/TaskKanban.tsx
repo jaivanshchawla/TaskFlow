@@ -2,7 +2,6 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
 import {
   DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors,
   type DragStartEvent, type DragEndEvent,
@@ -12,7 +11,7 @@ import { useTaskList, useUpdateTask } from "@/hooks/useTasks";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "@/lib/constants";
 import { TaskCardSkeleton } from "@/components/shared/SkeletonLoader";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { PAGE_VARIANTS, LIST_CONTAINER, LIST_ITEM, SPRING_SOFT } from "@/lib/animations";
+
 import { logger } from "@/lib/logger";
 import { toast } from "sonner";
 import type { Task } from "@/types";

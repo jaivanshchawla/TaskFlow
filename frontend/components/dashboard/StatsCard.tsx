@@ -21,7 +21,6 @@ export function StatsCard({ title, value, icon, description, trend, delay = 0 }:
   useEffect(() => {
     if (!started.current) {
       started.current = true;
-      const controls = count.set as unknown as (v: number) => void;
       count.set(value);
     }
   }, [value, count]);

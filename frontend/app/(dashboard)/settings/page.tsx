@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Sun, Moon, Monitor, Check } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -7,29 +7,8 @@ import { useUserMe, useUpdatePreferences } from "@/hooks/useTasks";
 import { PAGE_VARIANTS } from "@/lib/animations";
 import { ITEMS_PER_PAGE_OPTIONS } from "@/lib/constants";
 
-export default function SettingsPage() {
-  const { theme, setTheme } = useTheme();
-  const { data: user } = useUserMe();
-  const updatePrefs = useUpdatePreferences();
-  const [savedField, setSavedField] = useState<string | null>(null);
-
-  const [defaultView, setDefaultView] = useState<"list" | "kanban" | "calendar">("list");
-  const [perPage, setPerPage] = useState(20);
-
-  useEffect(() => {
-    if (user?.preferences) {
-      setDefaultView(user.preferences.default_view);
-      setPerPage(user.preferences.items_per_page);
-    }
-  }, [user]);
-
-  const saveWithFeedback = (field: string, fn: () => void) => {
-    fn();
-    setSavedField(field);
-    setTimeout(() => setSavedField(null), 1500);
-  };
-
-  const SavedIndicator = () => (
+function SavedIndicator() {
+  return (
     <motion.span
       initial={{ opacity: 0, x: -4 }}
       animate={{ opacity: 1, x: 0 }}
@@ -39,6 +18,22 @@ export default function SettingsPage() {
       Saved
     </motion.span>
   );
+}
+
+export default function SettingsPage() {
+  const { theme, setTheme } = useTheme();
+  const { data: user } = useUserMe();
+  const updatePrefs = useUpdatePreferences();
+  const [savedField, setSavedField] = useState<string | null>(null);
+
+  const defaultView = user?.preferences?.default_view ?? "list";
+  const perPage = user?.preferences?.items_per_page ?? 20;
+
+  const saveWithFeedback = (field: string, fn: () => void) => {
+    fn();
+    setSavedField(field);
+    setTimeout(() => setSavedField(null), 1500);
+  };
 
   return (
     <motion.div variants={PAGE_VARIANTS} initial="initial" animate="animate" exit="exit" className="space-y-8 max-w-2xl">
@@ -87,7 +82,6 @@ export default function SettingsPage() {
                 value={defaultView}
                 onChange={(e) => {
                   const v = e.target.value as "list" | "kanban" | "calendar";
-                  setDefaultView(v);
                   saveWithFeedback("defaultView", () => updatePrefs.mutate({ default_view: v }));
                 }}
                 className="px-2.5 py-1.5 rounded-lg text-xs outline-none cursor-pointer"
@@ -111,7 +105,6 @@ export default function SettingsPage() {
                 value={perPage}
                 onChange={(e) => {
                   const v = Number(e.target.value);
-                  setPerPage(v);
                   saveWithFeedback("perPage", () => updatePrefs.mutate({ items_per_page: v }));
                 }}
                 className="px-2.5 py-1.5 rounded-lg text-xs outline-none cursor-pointer"

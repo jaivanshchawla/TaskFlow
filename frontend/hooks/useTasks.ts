@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
-import { apiFetch, buildQueryString, APIError } from "@/lib/api";
+import { apiFetch, buildQueryString } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import { toast } from "sonner";
 import {

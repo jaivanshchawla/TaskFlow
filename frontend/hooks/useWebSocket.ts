@@ -21,6 +21,16 @@ export function useWebSocket() {
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { setConnected, setReconnecting, setLastEvent, incrementAttempts, resetAttempts } = useWSStore();
 
+  const connectRef = useRef<() => Promise<void>>(undefined!);
+
+  const scheduleReconnect = useCallback(() => {
+    const delay = Math.min(1000 * 2 ** reconnectAttempts.current, MAX_RECONNECT_DELAY);
+    reconnectAttempts.current++;
+    setReconnecting(true);
+    logger.warn("WebSocket", "Reconnecting", { attempt: reconnectAttempts.current, delay });
+    reconnectTimer.current = setTimeout(() => connectRef.current(), delay);
+  }, [setReconnecting]);
+
   const connect = useCallback(async () => {
     if (!isSignedIn || wsRef.current?.readyState === WebSocket.OPEN) return;
     const token = await getToken();
@@ -96,15 +106,11 @@ export function useWebSocket() {
     ws.onerror = () => {
       logger.error("WebSocket", "Connection error");
     };
-  }, [isSignedIn, getToken, queryClient, setConnected, setReconnecting, setLastEvent, incrementAttempts, resetAttempts]);
+  }, [isSignedIn, getToken, queryClient, setConnected, setReconnecting, setLastEvent, incrementAttempts, resetAttempts, scheduleReconnect]);
 
-  const scheduleReconnect = useCallback(() => {
-    const delay = Math.min(1000 * 2 ** reconnectAttempts.current, MAX_RECONNECT_DELAY);
-    reconnectAttempts.current++;
-    setReconnecting(true);
-    logger.warn("WebSocket", "Reconnecting", { attempt: reconnectAttempts.current, delay });
-    reconnectTimer.current = setTimeout(connect, delay);
-  }, [connect, setReconnecting]);
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   useEffect(() => {
     if (isSignedIn) connect();

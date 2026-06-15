@@ -39,13 +39,6 @@ const CHART_COLORS: Record<string, string> = {
   cancelled: "#9ca3af",
 };
 
-const PRIORITY_COLORS: Record<string, string> = {
-  urgent: "#ef4444",
-  high: "#f97316",
-  medium: "#eab308",
-  low: "#94a3b8",
-};
-
 export default function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useStats();
   const { data: tasksData, isLoading: tasksLoading } = useTaskList(

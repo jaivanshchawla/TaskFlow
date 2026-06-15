@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useDeleteTask, useUpdateTask } from "@/hooks/useTasks";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "@/lib/constants";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { SPRING_SNAPPY } from "@/lib/animations";
+
 import { logger } from "@/lib/logger";
 import type { Task } from "@/types";
 

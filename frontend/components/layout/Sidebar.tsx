@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
-import { LayoutDashboard, CheckSquare, Kanban, Calendar, Tag, Shield, LogOut } from "lucide-react";
+import { LayoutDashboard, CheckSquare, Kanban, Calendar, Tag, Shield } from "lucide-react";
 import { FileTextIcon } from "@/components/ui/file-text";
 import { SettingsIcon } from "@/components/ui/settings";
 import { ChevronLeftIcon } from "@/components/ui/chevron-left";
