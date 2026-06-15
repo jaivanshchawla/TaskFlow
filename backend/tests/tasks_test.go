@@ -34,11 +34,14 @@ func setupTestRouter(db *gorm.DB) *gin.Engine {
 	// Protected routes
 	api := r.Group("/api/v1")
 	// Skip auth middleware in tests by setting user_id directly
+	// Reject requests without X-Test-User-Id to properly simulate unauthorized access
 	api.Use(func(c *gin.Context) {
 		userID := c.GetHeader("X-Test-User-Id")
 		role := c.GetHeader("X-Test-Role")
 		if userID == "" {
-			userID = "00000000-0000-0000-0000-000000000000"
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			c.Abort()
+			return
 		}
 		if role == "" {
 			role = "user"
@@ -136,7 +139,7 @@ func TestCreateTask_Unauthorized(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	assert.NotEqual(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
 func TestGetTasks_FilterByStatus(t *testing.T) {
