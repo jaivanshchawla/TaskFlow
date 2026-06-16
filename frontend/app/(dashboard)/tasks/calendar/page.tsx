@@ -2,6 +2,7 @@
 import dynamic from "next/dynamic";
 import { motion } from "motion/react";
 import { PAGE_VARIANTS } from "@/lib/animations";
+import { BackendWakingUp } from "@/components/shared/BackendWakingUp";
 
 const TaskCalendar = dynamic(
   () =>
@@ -10,9 +11,7 @@ const TaskCalendar = dynamic(
     })),
   {
     ssr: false,
-    loading: () => (
-      <div className="shimmer h-96 rounded-xl" style={{ border: "1px solid var(--border-subtle)" }} />
-    ),
+    loading: () => <BackendWakingUp />,
   }
 );
 

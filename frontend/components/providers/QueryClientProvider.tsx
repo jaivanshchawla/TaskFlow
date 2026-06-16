@@ -10,12 +10,13 @@ export function QueryClientProviderWrapper({ children }: { children: React.React
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 30_000,
+            staleTime: 60_000,
             gcTime: 10 * 60_000,
             refetchOnWindowFocus: false,
             refetchOnReconnect: false,
-            retry: 1,
-            retryDelay: 800,
+            retry: 0,
+            retryDelay: 0,
+            placeholderData: (prev: unknown) => prev,
           },
         },
       })

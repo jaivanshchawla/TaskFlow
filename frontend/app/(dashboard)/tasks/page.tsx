@@ -9,6 +9,7 @@ import { useTaskList } from "@/hooks/useTasks";
 import { TaskFilters } from "@/components/tasks/TaskFilters";
 import { TaskCard } from "@/components/tasks/TaskCard";
 import { TaskListSkeleton } from "@/components/shared/SkeletonLoader";
+import { BackendWakingUp } from "@/components/shared/BackendWakingUp";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { VirtualList } from "@/components/shared/VirtualList";
 import { PAGE_VARIANTS, LIST_CONTAINER } from "@/lib/animations";
@@ -44,7 +45,9 @@ export default function TasksPage() {
       <TaskFilters />
 
       {/* Task list */}
-      {isLoading ? (
+      {isLoading && !data ? (
+        <BackendWakingUp />
+      ) : isLoading ? (
         <TaskListSkeleton />
       ) : tasks.length === 0 ? (
         <EmptyState

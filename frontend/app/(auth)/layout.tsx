@@ -10,11 +10,17 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   const mode = pathname.includes("/sign-up") ? "sign-up" : "sign-in";
 
   useEffect(() => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 35_000);
     fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/health`, {
       method: "GET",
       cache: "no-store",
-    }).catch(() => {});
-    logger.info("AuthLayout", "Backend warmup ping sent");
+      signal: controller.signal,
+    })
+      .then(() => logger.info("AuthLayout", "Backend warmup ping succeeded"))
+      .catch(() => logger.debug("AuthLayout", "Backend warmup ping failed (expected during cold start)"))
+      .finally(() => clearTimeout(timeoutId));
+    return () => { controller.abort(); clearTimeout(timeoutId); };
   }, []);
 
   return (

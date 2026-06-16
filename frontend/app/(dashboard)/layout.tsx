@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -7,6 +7,7 @@ import { useAuth } from "@clerk/nextjs";
 import { useUIStore } from "@/store/uiStore";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
+import { ConnectionStatus } from "@/components/shared/ConnectionStatus";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { logger } from "@/lib/logger";
 import { apiFetch, buildQueryString } from "@/lib/api";
@@ -22,7 +23,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const queryClient = useQueryClient();
   const { getToken } = useAuth();
   const { setCommandPaletteOpen, setViewMode, setActiveTaskId } = useUIStore();
-  const [isOffline, setIsOffline] = useState(false);
 
   useWebSocket();
 
@@ -35,31 +35,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, []);
 
   useEffect(() => {
-    const handleOffline = () => {
-      setIsOffline(true);
-      logger.warn("Dashboard", "Network offline detected");
-    };
-    const handleOnline = () => {
-      setIsOffline(false);
-      logger.info("Dashboard", "Network back online, refetching all queries");
-      queryClient.refetchQueries();
-    };
-
-    setIsOffline(!navigator.onLine);
-    window.addEventListener("offline", handleOffline);
-    window.addEventListener("online", handleOnline);
-    return () => {
-      window.removeEventListener("offline", handleOffline);
-      window.removeEventListener("online", handleOnline);
-    };
-  }, [queryClient]);
-
-  useEffect(() => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 35_000);
     fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/health`, {
       method: "GET",
       cache: "no-store",
-    }).catch(() => {});
-    logger.info("Dashboard", "Backend warmup ping sent");
+      signal: controller.signal,
+    })
+      .then(() => logger.info("Dashboard", "Backend warmup ping succeeded"))
+      .catch(() => logger.debug("Dashboard", "Backend warmup ping failed (expected during cold start)"))
+      .finally(() => clearTimeout(timeoutId));
+    return () => { controller.abort(); clearTimeout(timeoutId); };
   }, []);
 
   useEffect(() => {
@@ -71,7 +57,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         queryClient.prefetchQuery({
           queryKey: statsKeys.all,
           queryFn: async () => {
-            const res = await apiFetch<{ success: boolean; data: StatsResponse }>("/api/v1/stats", { token });
+            const res = await apiFetch<{ success: boolean; data: StatsResponse }>("/api/v1/stats", { token, timeoutMs: 30_000 });
             return res.data;
           },
           staleTime: 60_000,
@@ -81,7 +67,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           queryFn: async () => {
             return apiFetch<PaginatedResponse<Task>>(
               `/api/v1/tasks?${buildQueryString(DEFAULT_FILTERS as unknown as Record<string, unknown>, 1, 10)}`,
-              { token }
+              { token, timeoutMs: 30_000 }
             );
           },
           staleTime: 30_000,
@@ -89,7 +75,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         queryClient.prefetchQuery({
           queryKey: labelKeys.all,
           queryFn: async () => {
-            const res = await apiFetch<{ success: boolean; data: Label[] }>("/api/v1/labels", { token });
+            const res = await apiFetch<{ success: boolean; data: Label[] }>("/api/v1/labels", { token, timeoutMs: 30_000 });
             return res.data;
           },
           staleTime: 300_000,
@@ -129,18 +115,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg-base)" }}>
-      {isOffline && (
-        <div
-          className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-center py-1.5 text-xs font-medium"
-          style={{ background: "var(--bg-elevated)", color: "var(--text-muted)", borderBottom: "1px solid var(--border-subtle)" }}
-        >
-          You&apos;re offline — changes will sync when reconnected
-        </div>
-      )}
+      <ConnectionStatus />
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6" style={isOffline ? { marginTop: 32 } : undefined}>
+        <main className="flex-1 overflow-y-auto p-6">
           {children}
         </main>
       </div>

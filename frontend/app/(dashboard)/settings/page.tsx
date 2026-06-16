@@ -21,12 +21,12 @@ function SavedIndicator() {
 }
 
 const ACCENT_COLORS = [
-  { name: "Violet", value: "#8b5cf6", hsl: "263 70% 50%" },
-  { name: "Indigo", value: "#6366f1", hsl: "239 84% 67%" },
-  { name: "Blue", value: "#3b82f6", hsl: "217 91% 60%" },
-  { name: "Emerald", value: "#10b981", hsl: "160 84% 39%" },
-  { name: "Rose", value: "#f43f5e", hsl: "347 89% 60%" },
-  { name: "Amber", value: "#f59e0b", hsl: "38 92% 50%" },
+  { name: "Violet", value: "#8b5cf6" },
+  { name: "Indigo", value: "#6366f1" },
+  { name: "Blue", value: "#3b82f6" },
+  { name: "Emerald", value: "#10b981" },
+  { name: "Rose", value: "#f43f5e" },
+  { name: "Amber", value: "#f59e0b" },
 ] as const;
 
 const BORDER_RADIUS_OPTIONS = [
@@ -62,11 +62,14 @@ function saveSetting(key: string, value: unknown) {
   localStorage.setItem(`taskflow-settings-${key}`, JSON.stringify(value));
 }
 
-function applyAccentColor(hsl: string) {
+function applyAccentColor(hex: string) {
   const root = document.documentElement;
-  root.style.setProperty("--primary", hsl);
-  root.style.setProperty("--accent", hsl);
-  root.style.setProperty("--ring", hsl);
+  root.style.setProperty("--primary", hex, "important");
+  root.style.setProperty("--accent", hex, "important");
+  root.style.setProperty("--ring", hex, "important");
+  root.style.setProperty("--sidebar-primary", hex, "important");
+  root.style.setProperty("--sidebar-ring", hex, "important");
+  root.style.setProperty("--chart-1", hex, "important");
 }
 
 function applyBorderRadius(value: string) {
@@ -99,7 +102,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const accentOpt = ACCENT_COLORS.find(c => c.name === accentColor);
-    if (accentOpt) applyAccentColor(accentOpt.hsl);
+    if (accentOpt) applyAccentColor(accentOpt.value);
     applyBorderRadius(BORDER_RADIUS_OPTIONS.find(r => r.label === borderRadius)?.value ?? "12px");
     applyFontSize(FONT_SIZE_OPTIONS.find(s => s.label === fontSize)?.value ?? "14px");
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- apply visual settings on mount only
@@ -164,7 +167,7 @@ export default function SettingsPage() {
                     saveWithFeedback("accent", () => {
                       setAccentColor(color.name);
                       saveSetting("accent-color", color.name);
-                      applyAccentColor(color.hsl);
+                      applyAccentColor(color.value);
                     });
                   }}
                   className="w-6 h-6 rounded-full transition-all"

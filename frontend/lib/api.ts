@@ -4,15 +4,16 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit & { token?: string | null } = {}
+  options: RequestInit & { token?: string | null; timeoutMs?: number } = {}
 ): Promise<T> {
   const url = `${API_BASE}${path}`;
-  const { token, ...fetchOptions } = options;
+  const { token, timeoutMs = 8_000, ...fetchOptions } = options;
 
   logger.debug("API", `→ ${fetchOptions.method ?? "GET"} ${path}`);
 
   const res = await fetch(url, {
     ...fetchOptions,
+    signal: timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : undefined,
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

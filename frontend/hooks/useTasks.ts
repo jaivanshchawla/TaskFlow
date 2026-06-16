@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
 import { apiFetch, buildQueryString } from "@/lib/api";
 import { logger } from "@/lib/logger";
+import { readCache, writeCache } from "@/lib/cache";
 import { toast } from "sonner";
 import {
   Task,
@@ -372,12 +373,18 @@ export function useStats() {
     queryFn: async () => {
       const token = await getToken();
       logger.info("Stats", "Fetching dashboard stats");
-      const res = await apiFetch<{ success: boolean; data: StatsResponse }>("/api/v1/stats", { token });
-      return res.data;
+      try {
+        const res = await apiFetch<{ success: boolean; data: StatsResponse }>("/api/v1/stats", { token });
+        writeCache("stats", res.data, 5 * 60_000);
+        return res.data;
+      } catch (err) {
+        const cached = readCache<StatsResponse>("stats");
+        if (cached) return cached;
+        throw err;
+      }
     },
     staleTime: 60_000,
-    retry: 1,
-    retryDelay: 800,
+    retry: 0,
     placeholderData: (prev) => prev,
   });
 }
