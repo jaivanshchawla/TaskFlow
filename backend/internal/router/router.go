@@ -68,6 +68,20 @@ func SetupRouter(db *gorm.DB, hub *services.Hub, cfg *config.Config) *gin.Engine
 
 			// Activity
 			tasks.GET("/:id/activity", handlers.GetActivity(db))
+
+			// Bulk create
+			tasks.POST("/bulk-create", handlers.BulkCreateTasks(db, hub))
+
+			// Dependencies
+			tasks.GET("/:id/dependencies", handlers.ListDependencies(db))
+			tasks.POST("/:id/dependencies", handlers.AddDependency(db))
+			tasks.DELETE("/:id/dependencies/:dep_id", handlers.RemoveDependency(db))
+
+			// Time entries
+			tasks.GET("/:id/time-entries", handlers.ListTimeEntries(db))
+			tasks.POST("/:id/time-entries", handlers.StartTimeEntry(db))
+			tasks.PATCH("/:id/time-entries/:entry_id", handlers.StopTimeEntry(db))
+			tasks.DELETE("/:id/time-entries/:entry_id", handlers.DeleteTimeEntry(db))
 		}
 
 		// Labels

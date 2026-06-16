@@ -9,6 +9,8 @@ import { Loader2 } from "lucide-react";
 import { createTaskSchema, type CreateTaskInput } from "@/lib/schemas";
 import { useCreateTask, useUpdateTask, useTask, useLabels, useTemplates, useCreateTemplate } from "@/hooks/useTasks";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "@/lib/constants";
+import { RecurringTaskField } from "./RecurringTaskField";
+import type { RecurrenceConfig } from "@/types";
 
 interface TaskFormProps {
   taskId?: string;
@@ -41,6 +43,7 @@ export function TaskForm({ taskId, initialTemplateId, onSuccess }: TaskFormProps
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [formShake, setFormShake] = useState(false);
+  const [recurrence, setRecurrence] = useState<RecurrenceConfig | null>(null);
 
   useEffect(() => {
     if (existingTask) {
@@ -52,6 +55,7 @@ export function TaskForm({ taskId, initialTemplateId, onSuccess }: TaskFormProps
         due_date: existingTask.due_date,
         label_ids: existingTask.labels?.map(l => l.id) ?? [],
       });
+      setRecurrence(existingTask.recurrence ?? null);
     }
   }, [existingTask, reset]);
 
@@ -75,7 +79,7 @@ export function TaskForm({ taskId, initialTemplateId, onSuccess }: TaskFormProps
   const onSubmit = (data: CreateTaskInput) => {
     if (isEditing) {
       updateTask.mutate(
-        { id: taskId, data },
+        { id: taskId, data: { ...data, recurrence: recurrence ?? undefined } },
         {
           onSuccess: () => { toast.success("Task updated"); onSuccess?.(); },
           onError: () => { setFormShake(true); setTimeout(() => setFormShake(false), 400); },
@@ -83,7 +87,12 @@ export function TaskForm({ taskId, initialTemplateId, onSuccess }: TaskFormProps
       );
     } else {
       createTask.mutate(data, {
-        onSuccess: () => { toast.success("Task created"); onSuccess?.(); router.push("/tasks"); },
+        onSuccess: (res) => {
+          if (recurrence && res?.data?.id) {
+            updateTask.mutate({ id: res.data.id, data: { recurrence } });
+          }
+          toast.success("Task created"); onSuccess?.(); router.push("/tasks");
+        },
         onError: () => { setFormShake(true); setTimeout(() => setFormShake(false), 400); },
       });
     }
@@ -188,6 +197,9 @@ export function TaskForm({ taskId, initialTemplateId, onSuccess }: TaskFormProps
             style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)" }}
           />
         </div>
+
+        {/* Recurrence */}
+        <RecurringTaskField value={recurrence} onChange={setRecurrence} />
 
         {/* Labels */}
         <div>

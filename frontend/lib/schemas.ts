@@ -11,6 +11,12 @@ export const createTaskSchema = z.object({
   due_date: z.string().datetime().optional().nullable(),
   label_ids: z.array(z.string().uuid()).optional(),
   assigned_to: z.string().uuid().optional().nullable(),
+  recurrence: z.object({
+    type: z.enum(["daily", "weekly", "monthly", "custom"]),
+    interval: z.number().int().min(1),
+    day_of_week: z.number().int().min(0).max(6).optional(),
+    day_month: z.number().int().min(1).max(31).optional(),
+  }).nullable().optional(),
 });
 
 export const updateTaskSchema = createTaskSchema.partial();

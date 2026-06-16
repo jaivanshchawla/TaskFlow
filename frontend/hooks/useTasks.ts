@@ -17,6 +17,8 @@ import {
   FilterState,
   User,
   UserPreferences,
+  TimeEntry,
+  TaskDependency,
 } from "@/types";
 import { CreateTaskInput, UpdateTaskInput, CreateLabelInput, CreateSubtaskInput, CreateCommentInput } from "@/lib/schemas";
 
@@ -73,6 +75,14 @@ export const adminKeys = {
   tasks: ["admin", "tasks"] as const,
   stats: ["admin", "stats"] as const,
   activity: ["admin", "activity"] as const,
+};
+
+export const timeEntryKeys = {
+  byTask: (taskId: string) => [...taskKeys.all, "time-entries", taskId] as const,
+};
+
+export const dependencyKeys = {
+  byTask: (taskId: string) => [...taskKeys.all, "dependencies", taskId] as const,
 };
 
 /* ─── User Hooks ─── */
@@ -855,5 +865,226 @@ export function useAdminStats() {
       return res.data;
     },
     staleTime: 60_000,
+  });
+}
+
+/* ─── Time Entry Hooks ─── */
+export function useTimeEntries(taskId: string) {
+  const { getToken } = useAuth();
+  return useQuery({
+    queryKey: timeEntryKeys.byTask(taskId),
+    queryFn: async () => {
+      const token = await getToken();
+      logger.info("TimeEntries", "Fetching time entries", { taskId });
+      const res = await apiFetch<{ success: boolean; data: TimeEntry[] }>(`/api/v1/tasks/${taskId}/time-entries`, { token });
+      return res.data;
+    },
+    staleTime: 30_000,
+    enabled: !!taskId,
+  });
+}
+
+export function useStartTimeEntry() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (taskId: string) => {
+      const token = await getToken();
+      logger.info("TimeEntries", "Starting time entry", { taskId });
+      return apiFetch<{ success: boolean; data: TimeEntry }>(`/api/v1/tasks/${taskId}/time-entries`, {
+        method: "POST",
+        token,
+      });
+    },
+    onMutate: async (taskId) => {
+      await queryClient.cancelQueries({ queryKey: timeEntryKeys.byTask(taskId) });
+      const previous = queryClient.getQueryData<TimeEntry[]>(timeEntryKeys.byTask(taskId));
+      const optimistic: TimeEntry = {
+        id: crypto.randomUUID(),
+        task_id: taskId,
+        user_id: "",
+        started_at: new Date().toISOString(),
+        ended_at: null,
+        duration: 0,
+        created_at: new Date().toISOString(),
+      };
+      queryClient.setQueryData<TimeEntry[]>(timeEntryKeys.byTask(taskId), (old) => [
+        optimistic,
+        ...(old ?? []),
+      ]);
+      logger.debug("Mutation", "Optimistic start time entry", { taskId });
+      return { previous, taskId };
+    },
+    onError: (err, taskId, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(timeEntryKeys.byTask(taskId), ctx.previous);
+      }
+      logger.warn("TimeEntries", "Optimistic start rolling back", { error: String(err) });
+      toast.error("Failed to start timer. Changes reverted.");
+    },
+    onSettled: (_data, _err, taskId) => {
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.byTask(taskId) });
+      queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) });
+    },
+  });
+}
+
+export function useStopTimeEntry() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ taskId, entryId }: { taskId: string; entryId: string }) => {
+      const token = await getToken();
+      logger.info("TimeEntries", "Stopping time entry", { taskId, entryId });
+      return apiFetch<{ success: boolean; data: TimeEntry }>(`/api/v1/tasks/${taskId}/time-entries/${entryId}`, {
+        method: "PATCH",
+        token,
+      });
+    },
+    onSettled: (_data, _err, { taskId }) => {
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.byTask(taskId) });
+      queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) });
+    },
+    onError: (err) => {
+      logger.error("TimeEntries", "Failed to stop timer", { error: String(err) });
+      toast.error("Failed to stop timer");
+    },
+  });
+}
+
+export function useDeleteTimeEntry() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ taskId, entryId }: { taskId: string; entryId: string }) => {
+      const token = await getToken();
+      logger.info("TimeEntries", "Deleting time entry", { taskId, entryId });
+      await apiFetch(`/api/v1/tasks/${taskId}/time-entries/${entryId}`, { method: "DELETE", token });
+    },
+    onSettled: (_data, _err, { taskId }) => {
+      queryClient.invalidateQueries({ queryKey: timeEntryKeys.byTask(taskId) });
+      queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) });
+      toast.success("Time entry deleted");
+    },
+    onError: (err) => {
+      logger.error("TimeEntries", "Failed to delete time entry", { error: String(err) });
+      toast.error("Failed to delete time entry");
+    },
+  });
+}
+
+/* ─── Dependency Hooks ─── */
+export function useTaskDependencies(taskId: string) {
+  const { getToken } = useAuth();
+  return useQuery({
+    queryKey: dependencyKeys.byTask(taskId),
+    queryFn: async () => {
+      const token = await getToken();
+      logger.info("Dependencies", "Fetching dependencies", { taskId });
+      const res = await apiFetch<{ success: boolean; data: TaskDependency[] }>(`/api/v1/tasks/${taskId}/dependencies`, { token });
+      return res.data;
+    },
+    staleTime: 30_000,
+    enabled: !!taskId,
+  });
+}
+
+export function useAddDependency() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ taskId, dependsOnId }: { taskId: string; dependsOnId: string }) => {
+      const token = await getToken();
+      logger.info("Dependencies", "Adding dependency", { taskId, dependsOnId });
+      return apiFetch<{ success: boolean; data: TaskDependency }>(`/api/v1/tasks/${taskId}/dependencies`, {
+        method: "POST",
+        body: JSON.stringify({ depends_on_id: dependsOnId }),
+        token,
+      });
+    },
+    onSettled: (_data, _err, { taskId }) => {
+      queryClient.invalidateQueries({ queryKey: dependencyKeys.byTask(taskId) });
+      queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) });
+      toast.success("Dependency added");
+    },
+    onError: (err) => {
+      logger.error("Dependencies", "Failed to add dependency", { error: String(err) });
+      toast.error("Failed to add dependency");
+    },
+  });
+}
+
+export function useRemoveDependency() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ taskId, depId }: { taskId: string; depId: string }) => {
+      const token = await getToken();
+      logger.info("Dependencies", "Removing dependency", { taskId, depId });
+      await apiFetch(`/api/v1/tasks/${taskId}/dependencies/${depId}`, { method: "DELETE", token });
+    },
+    onSettled: (_data, _err, { taskId }) => {
+      queryClient.invalidateQueries({ queryKey: dependencyKeys.byTask(taskId) });
+      queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) });
+      toast.success("Dependency removed");
+    },
+    onError: (err) => {
+      logger.error("Dependencies", "Failed to remove dependency", { error: String(err) });
+      toast.error("Failed to remove dependency");
+    },
+  });
+}
+
+/* ─── Bulk Create ─── */
+export function useBulkCreateTasks() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (tasks: CreateTaskInput[]) => {
+      const token = await getToken();
+      logger.info("Tasks", "Bulk creating tasks", { count: tasks.length });
+      return apiFetch<{ success: boolean; data: Task[] }>("/api/v1/tasks/bulk-create", {
+        method: "POST",
+        body: JSON.stringify({ tasks }),
+        token,
+      });
+    },
+    onMutate: async (newTasks) => {
+      await queryClient.cancelQueries({ queryKey: taskKeys.lists() });
+      const previous = queryClient.getQueriesData<PaginatedResponse<Task>>({ queryKey: taskKeys.lists() });
+      logger.debug("Mutation", "Optimistic bulk create applied", { count: newTasks.length });
+      return { previous };
+    },
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previous) {
+        ctx.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
+      }
+      logger.warn("Tasks", "Optimistic bulk create rolling back", { error: String(err) });
+      toast.error("Failed to create tasks. Changes reverted.");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      queryClient.invalidateQueries({ queryKey: statsKeys.all });
+      logger.info("Tasks", "Bulk create completed, cache invalidated");
+      toast.success("Tasks created");
+    },
+  });
+}
+
+/* ─── Search Tasks for Dependency Picker ─── */
+export function useSearchTasksForDeps(query: string, enabled: boolean) {
+  const { getToken } = useAuth();
+  return useQuery({
+    queryKey: [...taskKeys.all, "search-deps", query],
+    queryFn: async () => {
+      const token = await getToken();
+      logger.info("Tasks", "Searching tasks for dependency picker", { query });
+      return apiFetch<PaginatedResponse<Task>>(
+        `/api/v1/tasks?search=${encodeURIComponent(query)}&page=1&per_page=10`,
+        { token }
+      );
+    },
+    staleTime: 10_000,
+    enabled,
   });
 }

@@ -48,6 +48,7 @@ const Pupil = ({
     return { x, y };
   };
 
+  // eslint-disable-next-line react-hooks/refs -- intentional: reading ref for position calculation per reference code
   const pupilPosition = calculatePupilPosition();
 
   return (
@@ -116,6 +117,7 @@ const EyeBall = ({
     return { x, y };
   };
 
+  // eslint-disable-next-line react-hooks/refs -- intentional: reading ref for position calculation per reference code
   const pupilPosition = calculatePupilPosition();
 
   return (
@@ -214,7 +216,7 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
       const timer = setTimeout(() => setIsLookingAtEachOther(false), 800);
       return () => clearTimeout(timer);
     }
-    setIsLookingAtEachOther(false); // eslint-disable-line react-hooks/set-state-in-effect -- resetting state
+    setIsLookingAtEachOther(false);
   }, [isTyping]);
 
   // Purple sneaky peeking animation when typing password and it's visible
@@ -230,6 +232,7 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
       schedulePeek();
       return () => clearTimeout(peekInterval);
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting peek state when conditions change
     setIsPurplePeeking(false);
   }, [password, showPassword]);
 
@@ -297,9 +300,13 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
     return { faceX, faceY, bodySkew };
   };
 
+  // eslint-disable-next-line react-hooks/refs -- intentional: reading refs for position calculation per reference code
   const purplePos = calculatePosition(purpleRef);
+  // eslint-disable-next-line react-hooks/refs
   const blackPos = calculatePosition(blackRef);
+  // eslint-disable-next-line react-hooks/refs
   const yellowPos = calculatePosition(yellowRef);
+  // eslint-disable-next-line react-hooks/refs
   const orangePos = calculatePosition(orangeRef);
 
   const passwordHasContent = password.length > 0;

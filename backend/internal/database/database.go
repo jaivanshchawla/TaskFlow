@@ -88,6 +88,8 @@ func Migrate(db *gorm.DB) {
 		{"Attachment", &models.Attachment{}},
 		{"ActivityLog", &models.ActivityLog{}},
 		{"TaskTemplate", &models.TaskTemplate{}},
+		{"TimeEntry", &models.TimeEntry{}},
+		{"TaskDependency", &models.TaskDependency{}},
 	}
 
 	for _, m := range modelsToMigrate {
@@ -127,6 +129,10 @@ func createIndexes(db *gorm.DB) {
 			{"idx_activity_logs_user_id", "CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id)"},
 			{"idx_labels_user_id", "CREATE INDEX IF NOT EXISTS idx_labels_user_id ON labels(user_id)"},
 			{"idx_templates_user_id", "CREATE INDEX IF NOT EXISTS idx_templates_user_id ON task_templates(user_id)"},
+			{"idx_time_entries_task_id", "CREATE INDEX IF NOT EXISTS idx_time_entries_task_id ON time_entries(task_id)"},
+			{"idx_time_entries_user_id", "CREATE INDEX IF NOT EXISTS idx_time_entries_user_id ON time_entries(user_id)"},
+			{"idx_task_dependencies_task_id", "CREATE INDEX IF NOT EXISTS idx_task_dependencies_task_id ON task_dependencies(task_id)"},
+			{"idx_task_dependencies_depends_on", "CREATE INDEX IF NOT EXISTS idx_task_dependencies_depends_on ON task_dependencies(depends_on_id)"},
 		}
 
 	for _, idx := range indexes {

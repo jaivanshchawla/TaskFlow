@@ -1,11 +1,12 @@
 "use client";
+import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { List, Kanban, Calendar } from "lucide-react";
 import { SunIcon } from "@/components/ui/sun";
 import { MoonIcon } from "@/components/ui/moon";
 import { SearchIcon } from "@/components/ui/search";
-import { BellIcon } from "@/components/ui/bell";
+import { NotificationCenter } from "@/components/layout/NotificationCenter";
 import { useTheme } from "next-themes";
 import { useUIStore } from "@/store/uiStore";
 import { SPRING_SNAPPY } from "@/lib/animations";
@@ -26,10 +27,21 @@ export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
-  const { viewMode, setViewMode, setCommandPaletteOpen } = useUIStore();
+  const { viewMode, setViewMode, setCommandPaletteOpen, setKeyboardShortcutsModalOpen } = useUIStore();
 
   const title = PAGE_TITLES[pathname] ?? "TaskFlow";
   const showViewSwitcher = pathname.startsWith("/tasks");
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "?" && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault();
+        setKeyboardShortcutsModalOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [setKeyboardShortcutsModalOpen]);
 
   return (
     <header
@@ -103,14 +115,7 @@ export function Header() {
           </motion.div>
         </motion.button>
 
-        <button
-          className="p-2 rounded-lg transition-colors relative"
-          style={{ color: "var(--text-muted)" }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elevated)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-        >
-          <BellIcon size={15} />
-        </button>
+        <NotificationCenter />
       </div>
     </header>
   );

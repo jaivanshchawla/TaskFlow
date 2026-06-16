@@ -79,6 +79,11 @@ export interface Task {
   assigned_to?: User | null;
   created_at: string;
   updated_at: string;
+  recurrence?: RecurrenceConfig | null;
+  dependency_ids?: string[];
+  dependencies?: TaskDependency[];
+  is_favorited?: boolean;
+  total_time_tracked?: number;
 }
 
 export interface PaginatedResponse<T> {
@@ -115,3 +120,52 @@ export interface FilterState {
   overdue: boolean;
   assigned_to_me: boolean;
 }
+
+export interface TimeEntry {
+  id: string;
+  task_id: string;
+  user_id: string;
+  started_at: string;
+  ended_at: string | null;
+  duration: number;
+  created_at: string;
+}
+
+export interface TaskDependency {
+  task_id: string;
+  depends_on_id: string;
+  depends_on?: Task;
+}
+
+export interface RecurrenceConfig {
+  type: "daily" | "weekly" | "monthly" | "custom";
+  interval: number;
+  day_of_week?: number;
+  day_month?: number;
+}
+
+export interface ColumnConfig {
+  id: string;
+  color: string;
+  wipLimit: number;
+  collapsed: boolean;
+  hidden: boolean;
+  customName?: string;
+}
+
+export interface SavedFilter {
+  name: string;
+  filters: FilterState;
+}
+
+export interface Notification {
+  id: string;
+  type: "task_assigned" | "task_commented" | "task_due_today" | "task_overdue";
+  task_id: string;
+  task_title: string;
+  message: string;
+  read: boolean;
+  created_at: string;
+}
+
+export type KanbanCardSize = "compact" | "default" | "detailed";

@@ -29,7 +29,9 @@ type Task struct {
 	Subtasks    []Subtask      `gorm:"foreignKey:TaskID" json:"subtasks,omitempty"`
 	Comments    []Comment      `gorm:"foreignKey:TaskID" json:"comments,omitempty"`
 	Attachments []Attachment   `gorm:"foreignKey:TaskID" json:"attachments,omitempty"`
-	ActivityLogs []ActivityLog `gorm:"foreignKey:TaskID" json:"activity_logs,omitempty"`
+	ActivityLogs []ActivityLog    `gorm:"foreignKey:TaskID" json:"activity_logs,omitempty"`
+	Recurrence   *RecurrenceConfig `gorm:"type:jsonb" json:"recurrence,omitempty"`
+	DependencyIDs []string        `gorm:"type:text[]" json:"dependency_ids,omitempty"`
 
 	// Computed fields (not in DB, populated by handler)
 	SubtasksCompleted int `gorm:"-" json:"subtasks_completed,omitempty"`
@@ -41,4 +43,11 @@ type Task struct {
 type TaskLabel struct {
 	TaskID  uuid.UUID `gorm:"type:uuid;primaryKey"`
 	LabelID uuid.UUID `gorm:"type:uuid;primaryKey"`
+}
+
+type RecurrenceConfig struct {
+	Type       string `json:"type"`       // daily, weekly, monthly, custom
+	Interval   int    `json:"interval"`
+	DayOfWeek  *int   `json:"day_of_week,omitempty"`
+	DayOfMonth *int   `json:"day_of_month,omitempty"`
 }

@@ -1,16 +1,33 @@
 "use client";
-import { motion } from "framer-motion";
-import { useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useMemo, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { useStats, useTaskList } from "@/hooks/useTasks";
+import { useStats, useTaskList, useCreateTask } from "@/hooks/useTasks";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { StatCardSkeleton } from "@/components/shared/SkeletonLoader";
 import { PAGE_VARIANTS, LIST_ITEM } from "@/lib/animations";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "@/lib/constants";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
+import { Plus, XIcon } from "lucide-react";
 
 const ChartsRow = dynamic(() => import("./charts-row").then(m => ({ default: m.ChartsRow })), { ssr: false, loading: () => <div className="shimmer h-64 rounded-xl" /> });
+
+interface RecentlyViewedItem {
+  id: string;
+  title: string;
+  path: string;
+}
+
+function getRecentlyViewed(): RecentlyViewedItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = localStorage.getItem("taskflow-recently-viewed");
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
 
 export default function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useStats();
@@ -19,8 +36,31 @@ export default function DashboardPage() {
     1,
     10
   );
+  const createTask = useCreateTask();
+
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickTitle, setQuickTitle] = useState("");
+  const [quickPriority, setQuickPriority] = useState<string>("medium");
+  const [quickDueDate, setQuickDueDate] = useState("");
+  const [recentlyViewed] = useState<RecentlyViewedItem[]>(() => getRecentlyViewed());
 
   const recentTasks = useMemo(() => tasksData?.data ?? [], [tasksData]);
+
+  const handleQuickAdd = useCallback(() => {
+    if (!quickTitle.trim()) return;
+    const data: { title: string; priority: string; due_date?: string } = {
+      title: quickTitle.trim(),
+      priority: quickPriority,
+    };
+    if (quickDueDate) {
+      data.due_date = new Date(quickDueDate).toISOString();
+    }
+    createTask.mutate(data as Parameters<typeof createTask.mutate>[0]);
+    setQuickTitle("");
+    setQuickPriority("medium");
+    setQuickDueDate("");
+    setQuickAddOpen(false);
+  }, [quickTitle, quickPriority, quickDueDate, createTask]);
 
   return (
     <motion.div variants={PAGE_VARIANTS} initial="initial" animate="animate" exit="exit" className="space-y-6">
@@ -79,6 +119,37 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Recently viewed from localStorage */}
+      {recentlyViewed.length > 0 && (
+        <motion.div
+          variants={LIST_ITEM}
+          initial="initial"
+          animate="animate"
+          className="rounded-xl border p-5"
+          style={{ background: "var(--bg-surface)", borderColor: "var(--border-subtle)" }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+              Recently Viewed
+            </h3>
+          </div>
+          <div className="space-y-1">
+            {recentlyViewed.slice(0, 10).map((item) => (
+              <Link
+                key={item.id}
+                href={item.path}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
+                onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elevated)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+              >
+                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "var(--accent-bright)" }} />
+                <span className="text-sm truncate flex-1" style={{ color: "var(--text-primary)" }}>{item.title}</span>
+              </Link>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
       {/* Recent tasks */}
       <motion.div
         variants={LIST_ITEM}
@@ -126,6 +197,93 @@ export default function DashboardPage() {
           </p>
         )}
       </motion.div>
+
+      {/* Quick add FAB */}
+      <div className="fixed bottom-6 right-6 z-40">
+        <AnimatePresence>
+          {quickAddOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="absolute bottom-14 right-0 w-72 p-4 rounded-xl shadow-2xl space-y-3"
+              style={{
+                background: "var(--bg-elevated)",
+                border: "1px solid var(--border-default)",
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>Quick Add Task</p>
+                <button onClick={() => setQuickAddOpen(false)} style={{ color: "var(--text-muted)" }}>
+                  <XIcon size={12} />
+                </button>
+              </div>
+              <input
+                autoFocus
+                value={quickTitle}
+                onChange={(e) => setQuickTitle(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleQuickAdd(); }}
+                placeholder="Task title..."
+                className="w-full px-3 py-2 rounded-lg text-xs outline-none"
+                style={{
+                  background: "var(--bg-overlay)",
+                  border: "1px solid var(--border-subtle)",
+                  color: "var(--text-primary)",
+                }}
+              />
+              <div className="flex gap-2">
+                <select
+                  value={quickPriority}
+                  onChange={(e) => setQuickPriority(e.target.value)}
+                  className="flex-1 px-2 py-1.5 rounded-lg text-[10px] outline-none cursor-pointer"
+                  style={{ background: "var(--bg-overlay)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)" }}
+                >
+                  {PRIORITY_OPTIONS.map(p => (
+                    <option key={p.value} value={p.value}>{p.label}</option>
+                  ))}
+                </select>
+                <input
+                  type="date"
+                  value={quickDueDate}
+                  onChange={(e) => setQuickDueDate(e.target.value)}
+                  className="flex-1 px-2 py-1.5 rounded-lg text-[10px] outline-none cursor-pointer"
+                  style={{ background: "var(--bg-overlay)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)" }}
+                />
+              </div>
+              <button
+                onClick={handleQuickAdd}
+                disabled={!quickTitle.trim() || createTask.isPending}
+                className="w-full py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-40"
+                style={{
+                  background: "var(--accent)",
+                  color: "white",
+                }}
+              >
+                {createTask.isPending ? "Creating..." : "Add Task"}
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setQuickAddOpen(!quickAddOpen)}
+          className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-colors"
+          style={{
+            background: quickAddOpen ? "var(--text-muted)" : "var(--accent)",
+            color: "white",
+          }}
+        >
+          <motion.div
+            animate={{ rotate: quickAddOpen ? 45 : 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <Plus size={20} />
+          </motion.div>
+        </motion.button>
+      </div>
     </motion.div>
   );
 }

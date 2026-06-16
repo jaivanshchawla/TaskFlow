@@ -16,7 +16,11 @@ import {
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "@/lib/constants";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { DRAWER_VARIANTS } from "@/lib/animations";
-import type { Task, Subtask } from "@/types";
+import { TaskDependencies } from "./TaskDependencies";
+import { TaskTimeTracking } from "./TaskTimeTracking";
+import { TaskStarButton } from "./TaskStarButton";
+import { RecurringTaskField } from "./RecurringTaskField";
+import type { Task, Subtask, RecurrenceConfig } from "@/types";
 
 const ACTIVITY_ICONS: Record<string, React.ElementType> = {
   task_created: Plus,
@@ -140,13 +144,16 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
             </button>
             <span className="text-xs" style={{ color: "var(--text-muted)" }}>Task detail</span>
           </div>
-          <button
-            onClick={() => setConfirmDelete(true)}
-            className="p-1.5 rounded-md transition-colors hover:bg-red-500/10"
-            style={{ color: "var(--text-muted)" }}
-          >
-            <Trash2 size={14} />
-          </button>
+          <div className="flex items-center gap-1">
+            <TaskStarButton taskId={taskId} />
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="p-1.5 rounded-md transition-colors hover:bg-red-500/10"
+              style={{ color: "var(--text-muted)" }}
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -223,6 +230,16 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
               />
             </div>
 
+            {/* Section 3b: Recurrence */}
+            <div>
+              <RecurringTaskField
+                value={task.recurrence ?? null}
+                onChange={(config: RecurrenceConfig | null) =>
+                  updateTask.mutate({ id: taskId, data: { recurrence: config } })
+                }
+              />
+            </div>
+
             {/* Section 4: Description */}
             <div>
               <label className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: "var(--text-muted)" }}>Description</label>
@@ -234,6 +251,16 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                 className="w-full px-3 py-2 rounded-lg text-xs outline-none resize-none"
                 style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)" }}
               />
+            </div>
+
+            {/* Section 4b: Dependencies */}
+            <div className="border-t pt-4" style={{ borderColor: "var(--border-subtle)" }}>
+              <TaskDependencies taskId={taskId} />
+            </div>
+
+            {/* Section 4c: Time Tracking */}
+            <div className="border-t pt-4" style={{ borderColor: "var(--border-subtle)" }}>
+              <TaskTimeTracking taskId={taskId} />
             </div>
 
             {/* Section 5: Labels */}

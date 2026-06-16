@@ -14,14 +14,26 @@ import { CopyIcon } from "@/components/ui/copy";
 import { useUIStore } from "@/store/uiStore";
 import { MODAL_VARIANTS } from "@/lib/animations";
 import { logger } from "@/lib/logger";
-import { useSearchTasks } from "@/hooks/useTasks";
+import { useSearchTasks, useLabels } from "@/hooks/useTasks";
 import { STATUS_OPTIONS } from "@/lib/constants";
+
+function getRecentlyViewed(): { id: string; title: string; path: string }[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = localStorage.getItem("taskflow-recently-viewed");
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
 
 export function CommandPalette() {
   const router = useRouter();
   const { commandPaletteOpen, setCommandPaletteOpen } = useUIStore();
   const [search, setSearch] = useState("");
   const { data: searchResults } = useSearchTasks(search, commandPaletteOpen && search.length > 1);
+  const { data: labels } = useLabels();
+  const recentlyViewed = getRecentlyViewed();
 
   const close = useCallback(() => {
     setCommandPaletteOpen(false);
@@ -107,6 +119,25 @@ export function CommandPalette() {
                   No results found
                 </Command.Empty>
 
+                {search.length === 0 && recentlyViewed.length > 0 && (
+                  <Command.Group heading={
+                    <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-1"
+                          style={{ color: "var(--text-muted)" }}>Recently Viewed</span>
+                  }>
+                    {recentlyViewed.slice(0, 10).map((item) => (
+                      <Command.Item
+                        key={item.id}
+                        value={`recent ${item.title}`}
+                        onSelect={() => run(() => router.push(item.path))}
+                        className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer"
+                      >
+                        <CopyIcon size={14} style={{ color: "var(--text-muted)" }} />
+                        <span className="text-sm truncate" style={{ color: "var(--text-primary)" }}>{item.title}</span>
+                      </Command.Item>
+                    ))}
+                  </Command.Group>
+                )}
+
                 {search.length > 1 && searchResults?.data && searchResults.data.length > 0 && (
                   <Command.Group heading={
                     <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-1"
@@ -122,15 +153,50 @@ export function CommandPalette() {
                           className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors"
                         >
                           <CopyIcon size={14} style={{ color: "var(--text-muted)" }} />
-                          <span className="flex-1 text-sm truncate" style={{ color: "var(--text-primary)" }}>
-                            {task.title}
-                          </span>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm block truncate" style={{ color: "var(--text-primary)" }}>
+                              {task.title}
+                            </span>
+                            {task.description && (
+                              <span className="text-[10px] block truncate" style={{ color: "var(--text-muted)" }}>
+                                {task.description.slice(0, 60)}
+                              </span>
+                            )}
+                          </div>
+                          {task.labels?.map(l => (
+                            <span key={l.id} className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0"
+                                  style={{ background: `${l.color}15`, color: l.color }}>
+                              {l.name}
+                            </span>
+                          ))}
                           <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${statusOpt?.bgClass}`}>
                             {statusOpt?.label}
                           </span>
                         </Command.Item>
                       );
                     })}
+                  </Command.Group>
+                )}
+
+                {search.length > 1 && labels && labels.length > 0 && (
+                  <Command.Group heading={
+                    <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-1"
+                          style={{ color: "var(--text-muted)" }}>Labels</span>
+                  }>
+                    {labels
+                      .filter(l => l.name.toLowerCase().includes(search.toLowerCase()))
+                      .slice(0, 5)
+                      .map((label) => (
+                        <Command.Item
+                          key={label.id}
+                          value={`label ${label.name}`}
+                          onSelect={() => run(() => router.push(`/labels`))}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer"
+                        >
+                          <Tag size={14} style={{ color: label.color }} />
+                          <span className="text-sm" style={{ color: "var(--text-primary)" }}>{label.name}</span>
+                        </Command.Item>
+                      ))}
                   </Command.Group>
                 )}
 
