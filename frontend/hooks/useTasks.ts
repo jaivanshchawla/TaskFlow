@@ -163,6 +163,7 @@ export function useTask(id: string) {
     },
     staleTime: 30_000,
     enabled: !!id,
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -334,7 +335,8 @@ export function useStats() {
     },
     staleTime: 60_000,
     retry: 1,
-    retryDelay: 1000,
+    retryDelay: 800,
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -350,6 +352,7 @@ export function useLabels() {
       return res.data;
     },
     staleTime: 5 * 60_000,
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -714,6 +717,7 @@ export function useTemplates() {
       return res.data;
     },
     staleTime: 5 * 60_000,
+    placeholderData: (prev) => prev,
   });
 }
 

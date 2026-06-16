@@ -2,21 +2,29 @@
 import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@clerk/nextjs";
 import { useUIStore } from "@/store/uiStore";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { logger } from "@/lib/logger";
+import { apiFetch, buildQueryString } from "@/lib/api";
+import { taskKeys, statsKeys, labelKeys } from "@/hooks/useTasks";
+import type { PaginatedResponse, StatsResponse, Label, Task } from "@/types";
 
 const CommandPalette = dynamic(() => import("@/components/layout/CommandPalette").then(m => ({ default: m.CommandPalette })), { ssr: false });
 
+const DEFAULT_FILTERS = { status: [], priority: [], label_ids: [], search: "", sort_by: "updated_at", sort_dir: "desc", due_today: false, overdue: false, assigned_to_me: false };
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const { getToken } = useAuth();
   const { setCommandPaletteOpen, setViewMode, setActiveTaskId } = useUIStore();
 
   useWebSocket();
 
-  // Warmup ping to wake Render free tier backend from cold start
   useEffect(() => {
     fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/health`, {
       method: "GET",
@@ -24,6 +32,50 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }).catch(() => {});
     logger.info("Dashboard", "Backend warmup ping sent");
   }, []);
+
+  useEffect(() => {
+    const prefetchData = async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+
+        queryClient.prefetchQuery({
+          queryKey: statsKeys.all,
+          queryFn: async () => {
+            const res = await apiFetch<{ success: boolean; data: StatsResponse }>("/api/v1/stats", { token });
+            return res.data;
+          },
+          staleTime: 60_000,
+        });
+
+        queryClient.prefetchQuery({
+          queryKey: taskKeys.list({ ...DEFAULT_FILTERS, page: 1, perPage: 10 }),
+          queryFn: async () => {
+            return apiFetch<PaginatedResponse<Task>>(
+              `/api/v1/tasks?${buildQueryString(DEFAULT_FILTERS as unknown as Record<string, unknown>, 1, 10)}`,
+              { token }
+            );
+          },
+          staleTime: 30_000,
+        });
+
+        queryClient.prefetchQuery({
+          queryKey: labelKeys.all,
+          queryFn: async () => {
+            const res = await apiFetch<{ success: boolean; data: Label[] }>("/api/v1/labels", { token });
+            return res.data;
+          },
+          staleTime: 300_000,
+        });
+
+        logger.info("Dashboard", "Prefetched stats, tasks, labels");
+      } catch {
+        logger.debug("Dashboard", "Prefetch skipped (no token)");
+      }
+    };
+
+    prefetchData();
+  }, [getToken, queryClient]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

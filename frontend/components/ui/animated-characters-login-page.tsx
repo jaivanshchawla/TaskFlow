@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Sparkles } from "lucide-react";
 
-
 interface PupilProps {
   size?: number;
   maxDistance?: number;
@@ -17,49 +16,47 @@ const Pupil = ({
   maxDistance = 5,
   pupilColor = "black",
   forceLookX,
-  forceLookY
+  forceLookY,
 }: PupilProps) => {
-  const [mouseX, setMouseX] = useState<number>(0);
-  const [mouseY, setMouseY] = useState<number>(0);
   const pupilRef = useRef<HTMLDivElement>(null);
+  const mouseTarget = useRef({ x: 0, y: 0 });
+  const mouseCurrent = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      setMouseX(e.clientX);
-      setMouseY(e.clientY);
+      mouseTarget.current.x = e.clientX;
+      mouseTarget.current.y = e.clientY;
     };
-
     window.addEventListener("mousemove", handleMouseMove);
+
+    let rafId: number;
+    const animate = () => {
+      mouseCurrent.current.x += (mouseTarget.current.x - mouseCurrent.current.x) * 0.12;
+      mouseCurrent.current.y += (mouseTarget.current.y - mouseCurrent.current.y) * 0.12;
+
+      if (pupilRef.current) {
+        if (forceLookX !== undefined && forceLookY !== undefined) {
+          pupilRef.current.style.transform = `translate(${forceLookX}px, ${forceLookY}px)`;
+        } else {
+          const rect = pupilRef.current.getBoundingClientRect();
+          const cx = rect.left + rect.width / 2;
+          const cy = rect.top + rect.height / 2;
+          const dx = mouseCurrent.current.x - cx;
+          const dy = mouseCurrent.current.y - cy;
+          const dist = Math.min(Math.sqrt(dx * dx + dy * dy), maxDistance);
+          const angle = Math.atan2(dy, dx);
+          pupilRef.current.style.transform = `translate(${Math.cos(angle) * dist}px, ${Math.sin(angle) * dist}px)`;
+        }
+      }
+      rafId = requestAnimationFrame(animate);
+    };
+    rafId = requestAnimationFrame(animate);
 
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
+      cancelAnimationFrame(rafId);
     };
-  }, []);
-
-  const calculatePupilPosition = () => {
-    if (!pupilRef.current) return { x: 0, y: 0 };
-
-    if (forceLookX !== undefined && forceLookY !== undefined) {
-      return { x: forceLookX, y: forceLookY };
-    }
-
-    const pupil = pupilRef.current.getBoundingClientRect();
-    const pupilCenterX = pupil.left + pupil.width / 2;
-    const pupilCenterY = pupil.top + pupil.height / 2;
-
-    const deltaX = mouseX - pupilCenterX;
-    const deltaY = mouseY - pupilCenterY;
-    const distance = Math.min(Math.sqrt(deltaX ** 2 + deltaY ** 2), maxDistance);
-
-    const angle = Math.atan2(deltaY, deltaX);
-    const x = Math.cos(angle) * distance;
-    const y = Math.sin(angle) * distance;
-
-    return { x, y };
-  };
-
-  // eslint-disable-next-line react-hooks/refs -- intentional: reading ref for position calculation
-  const pupilPosition = calculatePupilPosition();
+  }, [forceLookX, forceLookY, maxDistance]);
 
   return (
     <div
@@ -69,15 +66,11 @@ const Pupil = ({
         width: `${size}px`,
         height: `${size}px`,
         backgroundColor: pupilColor,
-        transform: `translate(${pupilPosition.x}px, ${pupilPosition.y}px)`,
-        transition: 'transform 0.1s ease-out',
+        willChange: "transform",
       }}
     />
   );
 };
-
-
-
 
 interface EyeBallProps {
   size?: number;
@@ -98,70 +91,71 @@ const EyeBall = ({
   pupilColor = "black",
   isBlinking = false,
   forceLookX,
-  forceLookY
+  forceLookY,
 }: EyeBallProps) => {
-  const [mouseX, setMouseX] = useState<number>(0);
-  const [mouseY, setMouseY] = useState<number>(0);
   const eyeRef = useRef<HTMLDivElement>(null);
+  const mouseTarget = useRef({ x: 0, y: 0 });
+  const mouseCurrent = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      setMouseX(e.clientX);
-      setMouseY(e.clientY);
+      mouseTarget.current.x = e.clientX;
+      mouseTarget.current.y = e.clientY;
     };
-
     window.addEventListener("mousemove", handleMouseMove);
+
+    let rafId: number;
+    const animate = () => {
+      mouseCurrent.current.x += (mouseTarget.current.x - mouseCurrent.current.x) * 0.12;
+      mouseCurrent.current.y += (mouseTarget.current.y - mouseCurrent.current.y) * 0.12;
+
+      const pupil = eyeRef.current?.querySelector<HTMLDivElement>("[data-eye]");
+      if (pupil) {
+        if (forceLookX !== undefined && forceLookY !== undefined) {
+          pupil.style.transform = `translate(${forceLookX}px, ${forceLookY}px)`;
+        } else if (eyeRef.current) {
+          const rect = eyeRef.current.getBoundingClientRect();
+          const cx = rect.left + rect.width / 2;
+          const cy = rect.top + rect.height / 2;
+          const dx = mouseCurrent.current.x - cx;
+          const dy = mouseCurrent.current.y - cy;
+          const dist = Math.min(Math.sqrt(dx * dx + dy * dy), maxDistance);
+          const angle = Math.atan2(dy, dx);
+          pupil.style.transform = `translate(${Math.cos(angle) * dist}px, ${Math.sin(angle) * dist}px)`;
+        }
+      }
+      rafId = requestAnimationFrame(animate);
+    };
+    rafId = requestAnimationFrame(animate);
 
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
+      cancelAnimationFrame(rafId);
     };
-  }, []);
-
-  const calculatePupilPosition = () => {
-    if (!eyeRef.current) return { x: 0, y: 0 };
-
-    if (forceLookX !== undefined && forceLookY !== undefined) {
-      return { x: forceLookX, y: forceLookY };
-    }
-
-    const eye = eyeRef.current.getBoundingClientRect();
-    const eyeCenterX = eye.left + eye.width / 2;
-    const eyeCenterY = eye.top + eye.height / 2;
-
-    const deltaX = mouseX - eyeCenterX;
-    const deltaY = mouseY - eyeCenterY;
-    const distance = Math.min(Math.sqrt(deltaX ** 2 + deltaY ** 2), maxDistance);
-
-    const angle = Math.atan2(deltaY, deltaX);
-    const x = Math.cos(angle) * distance;
-    const y = Math.sin(angle) * distance;
-
-    return { x, y };
-  };
-
-  // eslint-disable-next-line react-hooks/refs -- intentional: reading ref for position calculation
-  const pupilPosition = calculatePupilPosition();
+  }, [forceLookX, forceLookY, maxDistance]);
 
   return (
     <div
       ref={eyeRef}
-      className="rounded-full flex items-center justify-center transition-all duration-150"
+      className="rounded-full flex items-center justify-center"
       style={{
         width: `${size}px`,
-        height: isBlinking ? '2px' : `${size}px`,
+        height: isBlinking ? "2px" : `${size}px`,
         backgroundColor: eyeColor,
-        overflow: 'hidden',
+        overflow: "hidden",
+        transition: "height 0.15s ease",
+        willChange: "transform",
       }}
     >
       {!isBlinking && (
         <div
+          data-eye
           className="rounded-full"
           style={{
             width: `${pupilSize}px`,
             height: `${pupilSize}px`,
             backgroundColor: pupilColor,
-            transform: `translate(${pupilPosition.x}px, ${pupilPosition.y}px)`,
-            transition: 'transform 0.1s ease-out',
+            willChange: "transform",
           }}
         />
       )}
@@ -169,40 +163,35 @@ const EyeBall = ({
   );
 };
 
-
-
-
 interface ComponentProps {
   children: React.ReactNode;
   mode?: "sign-in" | "sign-up";
 }
 
 function Component({ children, mode = "sign-in" }: ComponentProps) {
-  const [showPassword, setShowPassword] = useState(false);
-  const [password, setPassword] = useState("");
   const [isPurpleBlinking, setIsPurpleBlinking] = useState(false);
   const [isBlackBlinking, setIsBlackBlinking] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [isLookingAtEachOther, setIsLookingAtEachOther] = useState(false);
   const [isPurplePeeking, setIsPurplePeeking] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [password, setPassword] = useState("");
+
   const purpleRef = useRef<HTMLDivElement>(null);
   const blackRef = useRef<HTMLDivElement>(null);
   const yellowRef = useRef<HTMLDivElement>(null);
   const orangeRef = useRef<HTMLDivElement>(null);
   const formContainerRef = useRef<HTMLDivElement>(null);
 
-  // State-driven positions for React render (updated at lower frequency)
-  const [positions, setPositions] = useState({
+  const mouseTarget = useRef({ x: 0, y: 0 });
+  const mouseCurrent = useRef({ x: 0, y: 0 });
+
+  const eyeStateRef = useRef({
     purple: { faceX: 0, faceY: 0, bodySkew: 0 },
     black: { faceX: 0, faceY: 0, bodySkew: 0 },
     yellow: { faceX: 0, faceY: 0, bodySkew: 0 },
     orange: { faceX: 0, faceY: 0, bodySkew: 0 },
   });
-
-  // RAF-based mouse tracking for buttery smooth eye movement
-  const mouseTarget = useRef({ x: 0, y: 0 });
-  const mouseCurrent = useRef({ x: 0, y: 0 });
-  const rafRef = useRef<number>(0);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -211,7 +200,6 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
     };
 
     const animate = () => {
-      // Lerp for smooth following (0.12 = smoothing factor)
       mouseCurrent.current.x += (mouseTarget.current.x - mouseCurrent.current.x) * 0.12;
       mouseCurrent.current.y += (mouseTarget.current.y - mouseCurrent.current.y) * 0.12;
 
@@ -229,12 +217,10 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
         };
       };
 
-      setPositions({
-        purple: calcPos(purpleRef, 1),
-        black: calcPos(blackRef, 1.5),
-        yellow: calcPos(yellowRef, 0.9),
-        orange: calcPos(orangeRef, 0.8),
-      });
+      eyeStateRef.current.purple = calcPos(purpleRef, 1);
+      eyeStateRef.current.black = calcPos(blackRef, 1.5);
+      eyeStateRef.current.yellow = calcPos(yellowRef, 0.9);
+      eyeStateRef.current.orange = calcPos(orangeRef, 0.8);
 
       rafRef.current = requestAnimationFrame(animate);
     };
@@ -248,32 +234,34 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
     };
   }, []);
 
+  const rafRef = useRef<number>(0);
+
   // Blinking - purple
   useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout>;
     const scheduleBlink = () => {
-      const timeout = setTimeout(() => {
+      timeout = setTimeout(() => {
         setIsPurpleBlinking(true);
         setTimeout(() => setIsPurpleBlinking(false), 150);
         scheduleBlink();
       }, Math.random() * 3000 + 2000);
-      return timeout;
     };
-    const t = scheduleBlink();
-    return () => clearTimeout(t);
+    scheduleBlink();
+    return () => clearTimeout(timeout);
   }, []);
 
   // Blinking - black
   useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout>;
     const scheduleBlink = () => {
-      const timeout = setTimeout(() => {
+      timeout = setTimeout(() => {
         setIsBlackBlinking(true);
         setTimeout(() => setIsBlackBlinking(false), 150);
         scheduleBlink();
-      }, Math.random() * 3000 + 2000);
-      return timeout;
+      }, Math.random() * 3000 + 2500);
     };
-    const t = scheduleBlink();
-    return () => clearTimeout(t);
+    scheduleBlink();
+    return () => clearTimeout(timeout);
   }, []);
 
   useEffect(() => {
@@ -290,15 +278,15 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
       if (isPurplePeeking) setIsPurplePeeking(false); // eslint-disable-line react-hooks/set-state-in-effect -- resetting peek state
       return;
     }
+    let peekInterval: ReturnType<typeof setTimeout>;
     const schedulePeek = () => {
-      const peekInterval = setTimeout(() => {
+      peekInterval = setTimeout(() => {
         setIsPurplePeeking(true);
         setTimeout(() => setIsPurplePeeking(false), 800);
       }, Math.random() * 3000 + 2000);
-      return peekInterval;
     };
-    const t = schedulePeek();
-    return () => clearTimeout(t);
+    schedulePeek();
+    return () => clearTimeout(peekInterval);
   }, [password, showPassword, isPurplePeeking]);
 
   // MutationObserver to detect Clerk password visibility toggle
@@ -360,22 +348,30 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
   }, []);
 
   const passwordHasContent = password.length > 0;
+  const coveringEyes = passwordHasContent && showPassword;
+  const purpleBodyTall = isTyping || (passwordHasContent && !showPassword);
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       {/* Left Content Section */}
-      <div className="relative hidden lg:flex flex-col justify-between p-12 text-primary-foreground" style={{
-        background: "#0a0a0f",
-        backgroundImage: `
-          radial-gradient(ellipse at 30% 50%, rgba(124,58,237,0.35) 0%, rgba(79,46,143,0.15) 40%, #0a0a0f 70%),
-          linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)
-        `,
-        backgroundSize: "auto, 40px 40px, 40px 40px",
-      }}>
+      <div
+        className="relative hidden lg:flex flex-col justify-between p-12 text-primary-foreground"
+        style={{
+          background: "#0a0a0f",
+          backgroundImage: `
+            radial-gradient(ellipse at 30% 50%, rgba(124,58,237,0.35) 0%, rgba(79,46,143,0.15) 40%, #0a0a0f 70%),
+            linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)
+          `,
+          backgroundSize: "auto, 40px 40px, 40px 40px",
+        }}
+      >
         <div className="relative z-20">
           <div className="flex items-center gap-2 text-lg font-semibold">
-            <div className="size-8 rounded-lg backdrop-blur-sm flex items-center justify-center" style={{ background: "rgba(255,255,255,0.1)" }}>
+            <div
+              className="size-8 rounded-lg backdrop-blur-sm flex items-center justify-center"
+              style={{ background: "rgba(255,255,255,0.1)" }}
+            >
               <Sparkles className="size-4 text-violet-400" />
             </div>
             <span className="text-white">TaskFlow</span>
@@ -383,51 +379,50 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
         </div>
 
         <div className="relative z-20 flex items-end justify-center h-[500px]">
-          {/* Cartoon Characters */}
-          <div className="relative" style={{ width: '550px', height: '400px' }}>
+          <div className="relative" style={{ width: "550px", height: "400px" }}>
             {/* Purple tall rectangle character - Back layer */}
             <div
               ref={purpleRef}
+              data-blob="purple"
               className="absolute bottom-0"
               style={{
-                left: '70px',
-                width: '180px',
-                height: (isTyping || (passwordHasContent && !showPassword)) ? '440px' : '400px',
-                backgroundColor: '#6C3FF5',
-                borderRadius: '10px 10px 0 0',
+                left: "70px",
+                width: "180px",
+                height: purpleBodyTall ? "440px" : "400px",
+                backgroundColor: "#6C3FF5",
+                borderRadius: "10px 10px 0 0",
                 zIndex: 1,
-                transition: 'height 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                transform: (passwordHasContent && showPassword)
-                  ? `skewX(0deg)`
-                  : (isTyping || (passwordHasContent && !showPassword))
-                    ? `skewX(${(positions.purple.bodySkew || 0) - 12}deg) translateX(40px)`
-                    : `skewX(${positions.purple.bodySkew || 0}deg)`,
-                transformOrigin: 'bottom center',
+                transition: "height 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                transformOrigin: "bottom center",
+                willChange: "transform",
               }}
             >
-              {/* Eye-covering arms (visible when password is shown) */}
+              {/* Eye-covering arms (motion spring) */}
               <div
+                data-blob="purple-arms"
                 style={{
-                  position: 'absolute',
-                  bottom: '55%',
-                  left: '10%',
-                  width: '80%',
-                  height: '35%',
-                  backgroundColor: '#6C3FF5',
-                  borderRadius: '8px 8px 0 0',
+                  position: "absolute",
+                  bottom: "55%",
+                  left: "10%",
+                  width: "80%",
+                  height: "35%",
+                  backgroundColor: "#6C3FF5",
+                  borderRadius: "8px 8px 0 0",
                   zIndex: 10,
-                  transition: 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                  transform: showPassword ? 'translateY(0)' : 'translateY(120%)',
-                  pointerEvents: 'none',
+                  transition: "transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                  transform: coveringEyes ? "translateY(0)" : "translateY(120%)",
+                  pointerEvents: "none",
+                  willChange: "transform",
                 }}
               />
               {/* Eyes */}
               <div
                 className="absolute flex gap-8"
                 style={{
-                  left: (passwordHasContent && showPassword) ? `${20}px` : isLookingAtEachOther ? `${55}px` : `${45 + positions.purple.faceX}px`,
-                  top: (passwordHasContent && showPassword) ? `${35}px` : isLookingAtEachOther ? `${65}px` : `${40 + positions.purple.faceY}px`,
-                  transition: 'left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), top 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  left: coveringEyes ? "20px" : isLookingAtEachOther ? "55px" : "45px",
+                  top: coveringEyes ? "35px" : isLookingAtEachOther ? "65px" : "40px",
+                  transition: "left 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), top 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                  willChange: "transform",
                 }}
               >
                 <EyeBall
@@ -437,8 +432,8 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
                   eyeColor="white"
                   pupilColor="#2D2D2D"
                   isBlinking={isPurpleBlinking}
-                  forceLookX={(passwordHasContent && showPassword) ? (isPurplePeeking ? 4 : -4) : isLookingAtEachOther ? 3 : undefined}
-                  forceLookY={(passwordHasContent && showPassword) ? (isPurplePeeking ? 5 : -4) : isLookingAtEachOther ? 4 : undefined}
+                  forceLookX={coveringEyes ? (isPurplePeeking ? 4 : -4) : isLookingAtEachOther ? 3 : undefined}
+                  forceLookY={coveringEyes ? (isPurplePeeking ? 5 : -4) : isLookingAtEachOther ? 4 : undefined}
                 />
                 <EyeBall
                   size={18}
@@ -447,8 +442,8 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
                   eyeColor="white"
                   pupilColor="#2D2D2D"
                   isBlinking={isPurpleBlinking}
-                  forceLookX={(passwordHasContent && showPassword) ? (isPurplePeeking ? 4 : -4) : isLookingAtEachOther ? 3 : undefined}
-                  forceLookY={(passwordHasContent && showPassword) ? (isPurplePeeking ? 5 : -4) : isLookingAtEachOther ? 4 : undefined}
+                  forceLookX={coveringEyes ? (isPurplePeeking ? 4 : -4) : isLookingAtEachOther ? 3 : undefined}
+                  forceLookY={coveringEyes ? (isPurplePeeking ? 5 : -4) : isLookingAtEachOther ? 4 : undefined}
                 />
               </div>
             </div>
@@ -456,48 +451,45 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
             {/* Black tall rectangle character - Middle layer */}
             <div
               ref={blackRef}
+              data-blob="black"
               className="absolute bottom-0"
               style={{
-                left: '240px',
-                width: '120px',
-                height: '310px',
-                backgroundColor: '#2D2D2D',
-                borderRadius: '8px 8px 0 0',
+                left: "240px",
+                width: "120px",
+                height: "310px",
+                backgroundColor: "#2D2D2D",
+                borderRadius: "8px 8px 0 0",
                 zIndex: 2,
-                transition: 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                transform: (passwordHasContent && showPassword)
-                  ? `skewX(0deg)`
-                  : isLookingAtEachOther
-                    ? `skewX(${(positions.black.bodySkew || 0) * 1.5 + 10}deg) translateX(20px)`
-                    : (isTyping || (passwordHasContent && !showPassword))
-                      ? `skewX(${(positions.black.bodySkew || 0) * 1.5}deg)`
-                      : `skewX(${positions.black.bodySkew || 0}deg)`,
-                transformOrigin: 'bottom center',
+                transition: "transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                transformOrigin: "bottom center",
+                willChange: "transform",
               }}
             >
-              {/* Eye-covering arms (visible when password is shown) */}
+              {/* Eye-covering arms */}
               <div
                 style={{
-                  position: 'absolute',
-                  bottom: '55%',
-                  left: '10%',
-                  width: '80%',
-                  height: '35%',
-                  backgroundColor: '#2D2D2D',
-                  borderRadius: '8px 8px 0 0',
+                  position: "absolute",
+                  bottom: "55%",
+                  left: "10%",
+                  width: "80%",
+                  height: "35%",
+                  backgroundColor: "#2D2D2D",
+                  borderRadius: "8px 8px 0 0",
                   zIndex: 10,
-                  transition: 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                  transform: showPassword ? 'translateY(0)' : 'translateY(120%)',
-                  pointerEvents: 'none',
+                  transition: "transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                  transform: coveringEyes ? "translateY(0)" : "translateY(120%)",
+                  pointerEvents: "none",
+                  willChange: "transform",
                 }}
               />
               {/* Eyes */}
               <div
                 className="absolute flex gap-6"
                 style={{
-                  left: (passwordHasContent && showPassword) ? `${10}px` : isLookingAtEachOther ? `${32}px` : `${26 + positions.black.faceX}px`,
-                  top: (passwordHasContent && showPassword) ? `${28}px` : isLookingAtEachOther ? `${12}px` : `${32 + positions.black.faceY}px`,
-                  transition: 'left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), top 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  left: coveringEyes ? "10px" : isLookingAtEachOther ? "32px" : "26px",
+                  top: coveringEyes ? "28px" : isLookingAtEachOther ? "12px" : "32px",
+                  transition: "left 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), top 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                  willChange: "transform",
                 }}
               >
                 <EyeBall
@@ -507,8 +499,8 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
                   eyeColor="white"
                   pupilColor="#2D2D2D"
                   isBlinking={isBlackBlinking}
-                  forceLookX={(passwordHasContent && showPassword) ? -4 : isLookingAtEachOther ? 0 : undefined}
-                  forceLookY={(passwordHasContent && showPassword) ? -4 : isLookingAtEachOther ? -4 : undefined}
+                  forceLookX={coveringEyes ? -4 : isLookingAtEachOther ? 0 : undefined}
+                  forceLookY={coveringEyes ? -4 : isLookingAtEachOther ? -4 : undefined}
                 />
                 <EyeBall
                   size={16}
@@ -517,8 +509,8 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
                   eyeColor="white"
                   pupilColor="#2D2D2D"
                   isBlinking={isBlackBlinking}
-                  forceLookX={(passwordHasContent && showPassword) ? -4 : isLookingAtEachOther ? 0 : undefined}
-                  forceLookY={(passwordHasContent && showPassword) ? -4 : isLookingAtEachOther ? -4 : undefined}
+                  forceLookX={coveringEyes ? -4 : isLookingAtEachOther ? 0 : undefined}
+                  forceLookY={coveringEyes ? -4 : isLookingAtEachOther ? -4 : undefined}
                 />
               </div>
             </div>
@@ -526,68 +518,69 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
             {/* Orange semi-circle character - Front left */}
             <div
               ref={orangeRef}
+              data-blob="orange"
               className="absolute bottom-0"
               style={{
-                left: '0px',
-                width: '240px',
-                height: '200px',
+                left: "0px",
+                width: "240px",
+                height: "200px",
                 zIndex: 3,
-                backgroundColor: '#FF9B6B',
-                borderRadius: '120px 120px 0 0',
-                transition: 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                transform: (passwordHasContent && showPassword) ? `skewX(0deg)` : `skewX(${positions.orange.bodySkew || 0}deg)`,
-                transformOrigin: 'bottom center',
+                backgroundColor: "#FF9B6B",
+                borderRadius: "120px 120px 0 0",
+                transition: "transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                transformOrigin: "bottom center",
+                willChange: "transform",
               }}
             >
-              {/* Eyes - just pupils, no white */}
               <div
                 className="absolute flex gap-8"
                 style={{
-                  left: (passwordHasContent && showPassword) ? `${50}px` : `${82 + (positions.orange.faceX || 0)}px`,
-                  top: (passwordHasContent && showPassword) ? `${85}px` : `${90 + (positions.orange.faceY || 0)}px`,
-                  transition: 'left 0.3s ease-out, top 0.3s ease-out',
+                  left: coveringEyes ? "50px" : "82px",
+                  top: coveringEyes ? "85px" : "90px",
+                  transition: "left 0.3s ease-out, top 0.3s ease-out",
+                  willChange: "transform",
                 }}
               >
-                <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" forceLookX={(passwordHasContent && showPassword) ? -5 : undefined} forceLookY={(passwordHasContent && showPassword) ? -4 : undefined} />
-                <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" forceLookX={(passwordHasContent && showPassword) ? -5 : undefined} forceLookY={(passwordHasContent && showPassword) ? -4 : undefined} />
+                <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" forceLookX={coveringEyes ? -5 : undefined} forceLookY={coveringEyes ? -4 : undefined} />
+                <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" forceLookX={coveringEyes ? -5 : undefined} forceLookY={coveringEyes ? -4 : undefined} />
               </div>
             </div>
 
             {/* Yellow tall rectangle character - Front right */}
             <div
               ref={yellowRef}
+              data-blob="yellow"
               className="absolute bottom-0"
               style={{
-                left: '310px',
-                width: '140px',
-                height: '230px',
-                backgroundColor: '#E8D754',
-                borderRadius: '70px 70px 0 0',
+                left: "310px",
+                width: "140px",
+                height: "230px",
+                backgroundColor: "#E8D754",
+                borderRadius: "70px 70px 0 0",
                 zIndex: 4,
-                transition: 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                transform: (passwordHasContent && showPassword) ? `skewX(0deg)` : `skewX(${positions.yellow.bodySkew || 0}deg)`,
-                transformOrigin: 'bottom center',
+                transition: "transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                transformOrigin: "bottom center",
+                willChange: "transform",
               }}
             >
-              {/* Eyes - just pupils, no white */}
               <div
                 className="absolute flex gap-6"
                 style={{
-                  left: (passwordHasContent && showPassword) ? `${20}px` : `${52 + (positions.yellow.faceX || 0)}px`,
-                  top: (passwordHasContent && showPassword) ? `${35}px` : `${40 + (positions.yellow.faceY || 0)}px`,
-                  transition: 'left 0.3s ease-out, top 0.3s ease-out',
+                  left: coveringEyes ? "20px" : "52px",
+                  top: coveringEyes ? "35px" : "40px",
+                  transition: "left 0.3s ease-out, top 0.3s ease-out",
+                  willChange: "transform",
                 }}
               >
-                <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" forceLookX={(passwordHasContent && showPassword) ? -5 : undefined} forceLookY={(passwordHasContent && showPassword) ? -4 : undefined} />
-                <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" forceLookX={(passwordHasContent && showPassword) ? -5 : undefined} forceLookY={(passwordHasContent && showPassword) ? -4 : undefined} />
+                <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" forceLookX={coveringEyes ? -5 : undefined} forceLookY={coveringEyes ? -4 : undefined} />
+                <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" forceLookX={coveringEyes ? -5 : undefined} forceLookY={coveringEyes ? -4 : undefined} />
               </div>
-              {/* Horizontal line for mouth */}
               <div
                 className="absolute w-20 h-[4px] bg-[#2D2D2D] rounded-full"
                 style={{
-                  left: (passwordHasContent && showPassword) ? `${10}px` : `${40 + (positions.yellow.faceX || 0)}px`,
-                  top: (passwordHasContent && showPassword) ? `${88}px` : `${88 + (positions.yellow.faceY || 0)}px`,
-                  transition: 'left 0.3s ease-out, top 0.3s ease-out',
+                  left: coveringEyes ? "10px" : "40px",
+                  top: coveringEyes ? "88px" : "88px",
+                  transition: "left 0.3s ease-out, top 0.3s ease-out",
                 }}
               />
             </div>
@@ -612,15 +605,21 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
       </div>
 
       {/* Right Login Section — Clerk form goes here */}
-      <div className="flex items-center justify-center p-8" style={{
-        background: "rgba(255,255,255,0.03)",
-        backdropFilter: "blur(20px)",
-        borderLeft: "1px solid rgba(255,255,255,0.06)",
-      }}>
+      <div
+        className="flex items-center justify-center p-8"
+        style={{
+          background: "rgba(255,255,255,0.03)",
+          backdropFilter: "blur(20px)",
+          borderLeft: "1px solid rgba(255,255,255,0.06)",
+        }}
+      >
         <div className="w-full max-w-[420px]" ref={formContainerRef}>
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center gap-2 text-lg font-semibold mb-12">
-            <div className="size-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(124,58,237,0.1)" }}>
+            <div
+              className="size-8 rounded-lg flex items-center justify-center"
+              style={{ background: "rgba(124,58,237,0.1)" }}
+            >
               <Sparkles className="size-4 text-violet-500" />
             </div>
             <span>TaskFlow</span>
