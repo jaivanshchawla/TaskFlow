@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { Plus } from "lucide-react";
@@ -13,6 +14,7 @@ import { VirtualList } from "@/components/shared/VirtualList";
 import { PAGE_VARIANTS, LIST_CONTAINER } from "@/lib/animations";
 
 export default function TasksPage() {
+  const router = useRouter();
   const { activeFilters } = useTaskStore();
   const [page, setPage] = useState(1);
   const perPage = 20;
@@ -49,7 +51,7 @@ export default function TasksPage() {
           title="No tasks found"
           description="Create your first task or adjust your filters."
           actionLabel="Create task"
-          onAction={() => window.location.href = "/tasks/new"}
+          onAction={() => router.push("/tasks/new")}
           icon="tasks"
         />
       ) : tasks.length > 50 ? (

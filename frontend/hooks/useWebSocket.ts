@@ -68,8 +68,14 @@ export function useWebSocket() {
             queryClient.invalidateQueries({ queryKey: statsKeys.all });
             break;
           case "task:updated": {
-            const task = data.payload as Task;
-            queryClient.invalidateQueries({ queryKey: taskKeys.detail(task.id) });
+            const updatedTask = data.payload as Task;
+            if (updatedTask?.id) {
+              queryClient.setQueryData(taskKeys.detail(updatedTask.id), (old: Task | undefined) => {
+                if (!old) return old;
+                return { ...old, ...updatedTask };
+              });
+              queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
+            }
             break;
           }
           case "task:deleted":

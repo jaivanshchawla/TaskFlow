@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: [
       "framer-motion",
-        "lucide-react",
+      "lucide-react",
       "@dnd-kit/core",
       "@dnd-kit/sortable",
       "@dnd-kit/utilities",
@@ -30,5 +30,13 @@ const nextConfig: NextConfig = {
       "@radix-ui/react-scroll-area",
     ],
   },
+  headers: async () => [
+    {
+      source: "/_next/static/:path*",
+      headers: [
+        { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+      ],
+    },
+  ],
 };
 export default nextConfig;

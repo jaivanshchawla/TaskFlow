@@ -262,6 +262,7 @@ function DragOverlayCard({ task }: { task: Task }) {
 }
 
 export function TaskKanban() {
+  const router = useRouter();
   const { data, isLoading } = useTaskList(
     { status: [], priority: [], label_ids: [], search: "", sort_by: "position", sort_dir: "asc", due_today: false, overdue: false, assigned_to_me: false },
     1,
@@ -329,7 +330,7 @@ export function TaskKanban() {
 
   const totalTasks = (data?.data ?? []).length;
   if (totalTasks === 0) {
-    return <EmptyState title="No tasks yet" description="Create your first task to see the board" icon="tasks" actionLabel="Create task" onAction={() => window.location.href = "/tasks/new"} />;
+    return <EmptyState title="No tasks yet" description="Create your first task to see the board" icon="tasks" actionLabel="Create task" onAction={() => router.push("/tasks/new")} />;
   }
 
   return (

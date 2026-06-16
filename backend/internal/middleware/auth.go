@@ -46,7 +46,13 @@ type jwksResponse struct {
 var (
 	jwksCacheInstance = &jwksCache{}
 	jwksCacheTTL      = 1 * time.Hour
+	userLookupCache   sync.Map
 )
+
+// InvalidateUserCache removes a user from the auth cache.
+func InvalidateUserCache(clerkID string) {
+	userLookupCache.Delete(clerkID)
+}
 
 // Auth returns a Gin middleware that validates Clerk JWTs.
 func Auth(db *gorm.DB, cfg *config.Config) gin.HandlerFunc {
@@ -134,6 +140,20 @@ func Auth(db *gorm.DB, cfg *config.Config) gin.HandlerFunc {
 			}
 		}
 
+		// Check user lookup cache first
+		if cached, ok := userLookupCache.Load(clerkUserID); ok {
+			cachedUser := cached.(*models.User)
+			c.Set("user_id", cachedUser.ID.String())
+			c.Set("clerk_user_id", clerkUserID)
+			c.Set("role", cachedUser.Role)
+			logger.Debug("User authenticated (cached)",
+				zap.String("user_id", cachedUser.ID.String()),
+				zap.String("role", cachedUser.Role),
+			)
+			c.Next()
+			return
+		}
+
 		// Look up user in local DB
 		var user models.User
 		result := db.Where("clerk_user_id = ?", clerkUserID).First(&user)
@@ -193,12 +213,15 @@ func Auth(db *gorm.DB, cfg *config.Config) gin.HandlerFunc {
 			}
 		}
 
+		// Cache the user for future requests
+		userLookupCache.Store(clerkUserID, &user)
+
 		// Set context values
 		c.Set("user_id", user.ID.String())
 		c.Set("clerk_user_id", clerkUserID)
 		c.Set("role", user.Role)
 
-		logger.Info("User authenticated",
+		logger.Debug("User authenticated",
 			zap.String("user_id", user.ID.String()),
 			zap.String("role", user.Role),
 		)

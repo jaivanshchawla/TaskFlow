@@ -20,6 +20,11 @@ var gzipPool = sync.Pool{
 // Gzip compresses responses when the client supports it.
 func Gzip() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		path := c.Request.URL.Path
+		if path == "/health" || path == "/api/v1/health/db" || strings.HasPrefix(path, "/api/webhooks") {
+			c.Next()
+			return
+		}
 		if !strings.Contains(c.Request.Header.Get("Accept-Encoding"), "gzip") {
 			c.Next()
 			return

@@ -229,11 +229,13 @@ export function useCreateTask() {
       logger.warn("Tasks", "Optimistic create rolling back", { error: String(err) });
       toast.error("Failed to create task. Changes reverted.");
     },
+    onSuccess: () => {
+      toast.success("Task created");
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
       queryClient.invalidateQueries({ queryKey: statsKeys.all });
       logger.info("Tasks", "Task created, cache invalidated");
-      toast.success("Task created");
     },
   });
 }
@@ -301,10 +303,12 @@ export function useDeleteTask() {
       logger.warn("Tasks", "Optimistic delete rolling back", { error: String(err) });
       toast.error("Failed to delete task. Changes reverted.");
     },
+    onSuccess: () => {
+      toast.success("Task deleted");
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
       queryClient.invalidateQueries({ queryKey: statsKeys.all });
-      toast.success("Task deleted");
     },
   });
 }
@@ -322,10 +326,12 @@ export function useBulkAction() {
         token,
       });
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.all });
-      queryClient.invalidateQueries({ queryKey: statsKeys.all });
+    onSuccess: () => {
       toast.success("Bulk action completed");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: statsKeys.all });
     },
     onError: (err) => {
       logger.error("Tasks", "Bulk action failed", { error: String(err) });
@@ -1267,11 +1273,13 @@ export function useBulkCreateTasks() {
       logger.warn("Tasks", "Optimistic bulk create rolling back", { error: String(err) });
       toast.error("Failed to create tasks. Changes reverted.");
     },
+    onSuccess: () => {
+      toast.success("Tasks created");
+    },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
       queryClient.invalidateQueries({ queryKey: statsKeys.all });
       logger.info("Tasks", "Bulk create completed, cache invalidated");
-      toast.success("Tasks created");
     },
   });
 }

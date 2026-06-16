@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TaskCard } from "@/components/tasks/TaskCard";
 import { mockTask } from "../fixtures";
 
@@ -10,6 +11,14 @@ vi.mock("next/navigation", () => ({
     push: vi.fn(),
     back: vi.fn(),
     refresh: vi.fn(),
+  }),
+}));
+
+// Mock Clerk auth
+vi.mock("@clerk/nextjs", () => ({
+  useAuth: () => ({
+    getToken: vi.fn().mockResolvedValue("mock-token"),
+    userId: "user-1",
   }),
 }));
 
@@ -49,41 +58,50 @@ vi.mock("framer-motion", () => {
   };
 });
 
+function renderWithProviders(ui: React.ReactElement) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      {ui}
+    </QueryClientProvider>
+  );
+}
+
 describe("TaskCard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("renders task title", () => {
-    render(<TaskCard task={mockTask} />);
+    renderWithProviders(<TaskCard task={mockTask} />);
     expect(screen.getByText("Build the API")).toBeInTheDocument();
   });
 
   it("renders status badge", () => {
-    render(<TaskCard task={mockTask} />);
+    renderWithProviders(<TaskCard task={mockTask} />);
     expect(screen.getByText("In Progress")).toBeInTheDocument();
   });
 
   it("renders priority dot", () => {
-    const { container } = render(<TaskCard task={mockTask} />);
+    const { container } = renderWithProviders(<TaskCard task={mockTask} />);
     const dots = container.querySelectorAll(".rounded-full");
     expect(dots.length).toBeGreaterThan(0);
   });
 
   it("renders label names", () => {
-    render(<TaskCard task={mockTask} />);
+    renderWithProviders(<TaskCard task={mockTask} />);
     expect(screen.getByText("Backend")).toBeInTheDocument();
   });
 
   it("renders due date when present", () => {
-    render(<TaskCard task={mockTask} />);
+    renderWithProviders(<TaskCard task={mockTask} />);
     const dateText = screen.getByText(/Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec/);
     expect(dateText).toBeInTheDocument();
   });
 
   it("renders urgent priority with pulse animation", () => {
     const urgentTask = { ...mockTask, priority: "urgent" as const };
-    const { container } = render(<TaskCard task={urgentTask} />);
+    const { container } = renderWithProviders(<TaskCard task={urgentTask} />);
     expect(container.querySelector(".animate-ping")).toBeInTheDocument();
   });
 
@@ -96,7 +114,7 @@ describe("TaskCard", () => {
         { id: "l3", name: "Critical", color: "#eab308" },
       ],
     };
-    render(<TaskCard task={taskWithManyLabels} />);
+    renderWithProviders(<TaskCard task={taskWithManyLabels} />);
     expect(screen.getByText("+1")).toBeInTheDocument();
   });
 });

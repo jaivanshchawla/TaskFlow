@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jaivanshchawla/taskflow/internal/config"
+	"github.com/jaivanshchawla/taskflow/internal/middleware"
 	"github.com/jaivanshchawla/taskflow/internal/models"
 	"github.com/jaivanshchawla/taskflow/pkg/logger"
 	"github.com/jaivanshchawla/taskflow/pkg/response"
@@ -96,6 +97,7 @@ func ClerkWebhook(db *gorm.DB, cfg *config.Config) gin.HandlerFunc {
 				}
 				db.Create(&prefs)
 				logger.Info("User created from webhook", zap.String("clerk_user_id", event.Data.ID))
+			middleware.InvalidateUserCache(event.Data.ID)
 			} else if result.Error == nil {
 				db.Model(&models.User{}).Where("clerk_user_id = ?", event.Data.ID).Updates(map[string]interface{}{
 					"email":      email,
@@ -103,20 +105,22 @@ func ClerkWebhook(db *gorm.DB, cfg *config.Config) gin.HandlerFunc {
 					"avatar_url": event.Data.ImageURL,
 					"role":       role,
 				})
-				logger.Info("User updated from webhook", zap.String("clerk_user_id", event.Data.ID))
-			}
-
-		case "user.updated":
-			role := event.Data.PublicMetadata.Role
-			if role == "" {
-				role = "user"
-			}
-			db.Model(&models.User{}).Where("clerk_user_id = ?", event.Data.ID).Updates(map[string]interface{}{
-				"name":       event.Data.FirstName + " " + event.Data.LastName,
-				"avatar_url": event.Data.ImageURL,
-				"role":       role,
-			})
 			logger.Info("User updated from webhook", zap.String("clerk_user_id", event.Data.ID))
+			middleware.InvalidateUserCache(event.Data.ID)
+		}
+
+	case "user.updated":
+		role := event.Data.PublicMetadata.Role
+		if role == "" {
+			role = "user"
+		}
+		db.Model(&models.User{}).Where("clerk_user_id = ?", event.Data.ID).Updates(map[string]interface{}{
+			"name":       event.Data.FirstName + " " + event.Data.LastName,
+			"avatar_url": event.Data.ImageURL,
+			"role":       role,
+		})
+		logger.Info("User updated from webhook", zap.String("clerk_user_id", event.Data.ID))
+		middleware.InvalidateUserCache(event.Data.ID)
 
 		case "user.deleted":
 			logger.Info("User deletion webhook received", zap.String("clerk_user_id", event.Data.ID))

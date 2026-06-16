@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, createContext, useContext } from "react";
 import { Sparkles } from "lucide-react";
+
+const MouseContext = createContext({ x: 0, y: 0 });
 
 interface PupilProps {
   size?: number;
@@ -18,18 +20,8 @@ const Pupil = ({
   forceLookX,
   forceLookY,
 }: PupilProps) => {
-  const [mouseX, setMouseX] = useState<number>(0);
-  const [mouseY, setMouseY] = useState<number>(0);
+  const { x: mouseX, y: mouseY } = useContext(MouseContext);
   const pupilRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMouseX(e.clientX);
-      setMouseY(e.clientY);
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, []);
 
   const calculatePupilPosition = () => {
     if (!pupilRef.current) return { x: 0, y: 0 };
@@ -87,18 +79,8 @@ const EyeBall = ({
   forceLookX,
   forceLookY,
 }: EyeBallProps) => {
-  const [mouseX, setMouseX] = useState<number>(0);
-  const [mouseY, setMouseY] = useState<number>(0);
+  const { x: mouseX, y: mouseY } = useContext(MouseContext);
   const eyeRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMouseX(e.clientX);
-      setMouseY(e.clientY);
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, []);
 
   const calculatePupilPosition = () => {
     if (!eyeRef.current) return { x: 0, y: 0 };
@@ -312,6 +294,7 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
   const passwordHasContent = password.length > 0;
 
   return (
+    <MouseContext.Provider value={{ x: mouseX, y: mouseY }}>
     <div className="min-h-screen grid lg:grid-cols-2">
       {/* Left Content Section */}
       <div className="relative hidden lg:flex flex-col justify-between p-12 text-primary-foreground" style={{
@@ -554,6 +537,7 @@ function Component({ children, mode = "sign-in" }: ComponentProps) {
         </div>
       </div>
     </div>
+    </MouseContext.Provider>
   );
 }
 

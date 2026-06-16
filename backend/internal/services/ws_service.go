@@ -74,21 +74,20 @@ func (h *Hub) Run() {
 			)
 
 		case event := <-h.broadcast:
+			data, err := json.Marshal(event)
+			if err != nil {
+				logger.Error("Failed to marshal WebSocket event", zap.Error(err))
+				continue
+			}
+
 			h.mu.RLock()
 			recipients := 0
 			for _, client := range h.clients {
-				// Broadcast to specified users or all if no users specified
 				if len(event.UserID) == 0 || client.UserID == event.UserID {
-					data, err := json.Marshal(event)
-					if err != nil {
-						logger.Error("Failed to marshal WebSocket event", zap.Error(err))
-						continue
-					}
 					select {
 					case client.Send <- data:
 						recipients++
 					default:
-						// Client buffer full, skip
 					}
 				}
 			}

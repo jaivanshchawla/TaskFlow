@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
@@ -70,6 +70,26 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
       titleRef.current.select();
     }
   }, [editingTitle]);
+
+  const [localDescription, setLocalDescription] = useState(task?.description ?? "");
+  const descTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setLocalDescription(task?.description ?? "");
+  }, [task?.description]);
+
+  const handleDescriptionChange = useCallback(
+    (value: string) => {
+      setLocalDescription(value);
+      if (descTimerRef.current) clearTimeout(descTimerRef.current);
+      descTimerRef.current = setTimeout(() => {
+        if (value !== task?.description) {
+          updateTask.mutate({ id: taskId, data: { description: value || undefined } });
+        }
+      }, 500);
+    },
+    [task?.description, taskId, updateTask]
+  );
 
   const handleTitleSave = () => {
     if (titleValue.trim() && titleValue !== task?.title) {
@@ -244,8 +264,8 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
             <div>
               <label className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: "var(--text-muted)" }}>Description</label>
               <textarea
-                value={task.description ?? ""}
-                onChange={(e) => updateTask.mutate({ id: taskId, data: { description: e.target.value || undefined } })}
+                value={localDescription}
+                onChange={(e) => handleDescriptionChange(e.target.value)}
                 placeholder="Add a description..."
                 rows={4}
                 className="w-full px-3 py-2 rounded-lg text-xs outline-none resize-none"

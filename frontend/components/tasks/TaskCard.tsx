@@ -4,7 +4,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { MoreHorizontal, Pencil, Copy, CheckCircle, Trash2 } from "lucide-react";
 import { isAfter, isToday, format } from "date-fns";
 import { useRouter } from "next/navigation";
-import { useDeleteTask, useUpdateTask } from "@/hooks/useTasks";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@clerk/nextjs";
+import { useDeleteTask, useUpdateTask, taskKeys } from "@/hooks/useTasks";
+import { apiFetch } from "@/lib/api";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "@/lib/constants";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
@@ -21,8 +24,21 @@ export const TaskCard = memo(function TaskCard({ task }: TaskCardProps) {
   const updateTask = useUpdateTask();
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [borderColor, setBorderColor] = useState("var(--border-subtle)");
   const menuRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
+  const { getToken } = useAuth();
+
+  const handlePrefetch = () => {
+    queryClient.prefetchQuery({
+      queryKey: taskKeys.detail(task.id),
+      queryFn: async () => {
+        const token = await getToken();
+        const res = await apiFetch<{ success: boolean; data: Task }>(`/api/v1/tasks/${task.id}`, { token });
+        return res.data;
+      },
+      staleTime: 30_000,
+    });
+  };
 
   const statusOpt = STATUS_OPTIONS.find(s => s.value === task.status);
   const priorityOpt = PRIORITY_OPTIONS.find(p => p.value === task.priority);
@@ -61,15 +77,14 @@ export const TaskCard = memo(function TaskCard({ task }: TaskCardProps) {
         exit={{ opacity: 0, x: -100, height: 0, marginBottom: 0 }}
         transition={{ duration: 0.2 }}
         whileHover={{ y: -1 }}
-        onHoverStart={() => setBorderColor("var(--border-default)")}
-        onHoverEnd={() => setBorderColor("var(--border-subtle)")}
-        className="relative flex items-center gap-3 p-4 rounded-xl cursor-pointer group"
-        style={{
-          background: "var(--bg-surface)",
-          border: `1px solid ${borderColor}`,
-        }}
+        className="group"
+        onMouseEnter={handlePrefetch}
         onClick={() => router.push(`/tasks/${task.id}`)}
       >
+        <div
+          className="relative flex items-center gap-3 p-4 rounded-xl cursor-pointer border border-transparent group-hover:border-[var(--border-default)] transition-colors duration-200"
+          style={{ background: "var(--bg-surface)" }}
+        >
         {/* Priority bar */}
         <div
           className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full"
@@ -172,6 +187,7 @@ export const TaskCard = memo(function TaskCard({ task }: TaskCardProps) {
               </>
             )}
           </AnimatePresence>
+        </div>
         </div>
       </motion.div>
 

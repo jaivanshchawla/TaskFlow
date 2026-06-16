@@ -39,8 +39,8 @@ func Connect(databaseURL string) *gorm.DB {
 
 			sqlDB.SetMaxOpenConns(25)
 			sqlDB.SetMaxIdleConns(10)
-			sqlDB.SetConnMaxLifetime(5 * time.Minute)
-			sqlDB.SetConnMaxIdleTime(3 * time.Minute)
+			sqlDB.SetConnMaxLifetime(30 * time.Minute)
+			sqlDB.SetConnMaxIdleTime(5 * time.Minute)
 
 			// Verify connection
 			if err := sqlDB.Ping(); err != nil {

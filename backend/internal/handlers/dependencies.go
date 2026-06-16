@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -11,6 +12,15 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
+
+type dependencyResult struct {
+	ID       string     `json:"id"`
+	Title    string     `json:"title"`
+	Status   string     `json:"status"`
+	Priority string     `json:"priority"`
+	DueDate  *time.Time `json:"due_date"`
+	Relation string     `json:"-"`
+}
 
 func ListDependencies(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -28,23 +38,36 @@ func ListDependencies(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Tasks this task depends on
-		var dependsOn []models.Task
-		db.Raw(`
-			SELECT t.* FROM tasks t
+		var results []dependencyResult
+		err = db.Raw(`
+			SELECT t.id::text, t.title, t.status, t.priority, t.due_date, 'depends_on' as relation
+			FROM tasks t
 			JOIN task_dependencies td ON td.depends_on_id = t.id
 			WHERE td.task_id = ? AND t.deleted_at IS NULL
-			LIMIT 200
-		`, task.ID).Scan(&dependsOn)
-
-		// Tasks that depend on this task
-		var dependedBy []models.Task
-		db.Raw(`
-			SELECT t.* FROM tasks t
+			UNION ALL
+			SELECT t.id::text, t.title, t.status, t.priority, t.due_date, 'depended_by' as relation
+			FROM tasks t
 			JOIN task_dependencies td ON td.task_id = t.id
 			WHERE td.depends_on_id = ? AND t.deleted_at IS NULL
 			LIMIT 200
-		`, task.ID).Scan(&dependedBy)
+		`, task.ID, task.ID).Scan(&results).Error
+		if err != nil {
+			logger.Error("Failed to query dependencies", zap.Error(err))
+			response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list dependencies")
+			return
+		}
+
+		dependsOn := make([]models.Task, 0)
+		dependedBy := make([]models.Task, 0)
+		for _, r := range results {
+			uid, _ := uuid.Parse(r.ID)
+			task := models.Task{ID: uid, Title: r.Title, Status: r.Status, Priority: r.Priority, DueDate: r.DueDate}
+			if r.Relation == "depends_on" {
+				dependsOn = append(dependsOn, task)
+			} else {
+				dependedBy = append(dependedBy, task)
+			}
+		}
 
 		logger.Info("Dependencies listed", zap.String("task_id", taskID))
 		response.Success(c, http.StatusOK, gin.H{

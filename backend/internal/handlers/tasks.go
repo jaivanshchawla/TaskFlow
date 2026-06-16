@@ -631,25 +631,19 @@ func BulkTaskAction(db *gorm.DB, hub *services.Hub) gin.HandlerFunc {
 		}
 
 		affected := 0
-		// Batch operations where possible
+		var activityAction string
 		switch input.Action {
 		case "delete":
 			db.Where("id IN ?", taskIDs).Delete(&models.Task{})
-			for _, task := range tasks {
-				services.LogActivity(db, task.ID, userID, "task_deleted", "", nil, nil)
-			}
+			activityAction = "task_deleted_bulk"
 			affected = len(tasks)
 		case "update_status":
 			db.Model(&models.Task{}).Where("id IN ?", taskIDs).Update("status", input.Payload.Status)
-			for _, task := range tasks {
-				services.LogActivity(db, task.ID, userID, "status_changed", "status", task.Status, input.Payload.Status)
-			}
+			activityAction = "status_changed_bulk"
 			affected = len(tasks)
 		case "update_priority":
 			db.Model(&models.Task{}).Where("id IN ?", taskIDs).Update("priority", input.Payload.Priority)
-			for _, task := range tasks {
-				services.LogActivity(db, task.ID, userID, "priority_changed", "priority", task.Priority, input.Payload.Priority)
-			}
+			activityAction = "priority_changed_bulk"
 			affected = len(tasks)
 		case "add_label":
 			labelID, err := uuid.Parse(input.Payload.LabelID)
@@ -664,8 +658,22 @@ func BulkTaskAction(db *gorm.DB, hub *services.Hub) gin.HandlerFunc {
 					args = append(args, tid, labelID)
 				}
 				db.Exec("INSERT INTO task_labels (task_id, label_id) VALUES "+placeholders+" ON CONFLICT DO NOTHING", args...)
+				activityAction = "label_added_bulk"
 				affected = len(tasks)
 			}
+		}
+
+		// Batch insert activity logs
+		if affected > 0 && activityAction != "" {
+			logs := make([]models.ActivityLog, 0, len(tasks))
+			for _, task := range tasks {
+				logs = append(logs, models.ActivityLog{
+					TaskID: task.ID,
+					UserID: userID,
+					Action: activityAction,
+				})
+			}
+			db.Create(&logs)
 		}
 
 		// Single broadcast after batch operation
