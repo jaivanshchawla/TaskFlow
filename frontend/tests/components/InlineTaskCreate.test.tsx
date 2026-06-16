@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import React from "react";
 import { InlineTaskCreate } from "@/components/tasks/kanban/InlineTaskCreate";
 
-vi.mock("framer-motion", () => {
+vi.mock("motion/react", () => {
   const SKIP_PROPS = new Set(["initial", "animate", "exit", "variants", "transition", "whileHover", "whileTap"]);
   function filterProps(props: Record<string, unknown>) {
     const filtered: Record<string, unknown> = {};

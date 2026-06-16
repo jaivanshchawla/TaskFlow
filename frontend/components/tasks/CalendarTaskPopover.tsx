@@ -1,5 +1,5 @@
 "use client";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { Task } from "@/types";
 import { PRIORITY_OPTIONS, STATUS_OPTIONS } from "@/lib/constants";
 import Link from "next/link";

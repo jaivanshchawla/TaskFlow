@@ -1,7 +1,7 @@
 "use client";
 import { use } from "react";
 import { useRouter } from "next/navigation";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "motion/react";
 import { TaskDetail } from "@/components/tasks/TaskDetail";
 
 export default function TaskDetailPage({ params }: { params: Promise<{ id: string }> }) {

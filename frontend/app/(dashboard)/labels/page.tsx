@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { useLabels, useCreateLabel, useUpdateLabel, useDeleteLabel } from "@/hooks/useTasks";
 import { createLabelSchema } from "@/lib/schemas";

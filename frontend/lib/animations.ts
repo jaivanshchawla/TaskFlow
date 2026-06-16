@@ -1,4 +1,4 @@
-import type { Transition } from "framer-motion";
+import type { Transition } from "motion/react";
 
 export const EASE_OUT_EXPO = [0.23, 1, 0.32, 1] as const;
 export const SPRING_SOFT: Transition = { type: "spring", stiffness: 300, damping: 30 };

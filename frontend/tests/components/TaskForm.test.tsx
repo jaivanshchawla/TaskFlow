@@ -42,8 +42,8 @@ vi.mock("@/hooks/useTasks", () => ({
   }),
 }));
 
-// Mock framer-motion
-vi.mock("framer-motion", () => {
+// Mock motion/react
+vi.mock("motion/react", () => {
   const SKIP_PROPS = new Set(["initial", "animate", "exit", "variants", "transition", "whileHover", "whileTap", "layout"]);
   function filterProps(props: Record<string, unknown>) {
     const filtered: Record<string, unknown> = {};

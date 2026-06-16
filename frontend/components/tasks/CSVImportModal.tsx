@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { Upload, FileText, X, Check, Loader2 } from "lucide-react";
 import { useBulkCreateTasks } from "@/hooks/useTasks";
 import { MODAL_VARIANTS } from "@/lib/animations";

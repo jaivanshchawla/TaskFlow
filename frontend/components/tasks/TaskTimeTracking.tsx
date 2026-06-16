@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { Play, Pause, Trash2, Clock } from "lucide-react";
 import { useTimeEntries, useStartTimeEntry, useStopTimeEntry, useDeleteTimeEntry } from "@/hooks/useTasks";
 import { SPRING_SNAPPY } from "@/lib/animations";

@@ -1,5 +1,5 @@
 "use client";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { useUIStore } from "@/store/uiStore";
 import { MODAL_VARIANTS } from "@/lib/animations";
 import { XIcon } from "@/components/ui/x";

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { useUIStore } from "@/store/uiStore";
 import { BellIcon } from "@/components/ui/bell";
 import { XIcon } from "@/components/ui/x";

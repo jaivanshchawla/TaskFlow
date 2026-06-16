@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { useCreateTask } from "@/hooks/useTasks";
 import { PRIORITY_OPTIONS } from "@/lib/constants";
 import { SPRING_SNAPPY } from "@/lib/animations";

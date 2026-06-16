@@ -1,5 +1,5 @@
 "use client";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { useMemo, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useStats, useTaskList, useCreateTask } from "@/hooks/useTasks";

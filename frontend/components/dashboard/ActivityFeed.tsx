@@ -1,5 +1,5 @@
 "use client";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { formatDistanceToNow } from "date-fns";
 import { CircleCheckIcon } from "@/components/ui/circle-check";
 import { ClockIcon } from "@/components/ui/clock";

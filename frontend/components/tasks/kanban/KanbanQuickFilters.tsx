@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { SearchIcon } from "@/components/ui/search";
 import { useTaskStore } from "@/store/taskStore";
 import { PRIORITY_OPTIONS } from "@/lib/constants";

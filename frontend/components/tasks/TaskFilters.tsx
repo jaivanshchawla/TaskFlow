@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { Search, X, SlidersHorizontal, ChevronDown, ArrowUpDown, Save, Trash2 } from "lucide-react";
 import { useTaskStore } from "@/store/taskStore";
 import { useLabels } from "@/hooks/useTasks";

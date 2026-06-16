@@ -1,5 +1,5 @@
 "use client";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { useTaskStore } from "@/store/taskStore";
 import { Star } from "lucide-react";
 import { SPRING_SNAPPY } from "@/lib/animations";

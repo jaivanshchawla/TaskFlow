@@ -1,5 +1,5 @@
 "use client";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { MODAL_VARIANTS } from "@/lib/animations";
 
 interface EmptyStateProps {

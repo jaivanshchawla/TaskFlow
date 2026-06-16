@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { useUIStore } from "@/store/uiStore";
 import { SPRING_SNAPPY } from "@/lib/animations";
 import type { ColumnConfig } from "@/types";

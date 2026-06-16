@@ -1,6 +1,6 @@
 "use client";
 import { memo, useState, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { MoreHorizontal, Pencil, Copy, CheckCircle, Trash2 } from "lucide-react";
 import { isAfter, isToday, format } from "date-fns";
 import { useRouter } from "next/navigation";

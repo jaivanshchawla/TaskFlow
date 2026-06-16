@@ -1,6 +1,6 @@
 "use client";
 import { memo, useState, useMemo, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { useRouter } from "next/navigation";
 import {
   DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors,

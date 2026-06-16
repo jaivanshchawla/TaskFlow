@@ -1,7 +1,7 @@
 "use client";
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { TaskForm } from "@/components/tasks/TaskForm";
 import { PAGE_VARIANTS } from "@/lib/animations";
 

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { Search, Shield, ShieldOff } from "lucide-react";
 import { useAdminUsers, useAdminUpdateUser } from "@/hooks/useTasks";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";

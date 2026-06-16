@@ -1,5 +1,5 @@
 "use client";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { useUIStore } from "@/store/uiStore";
 import { SPRING_SNAPPY } from "@/lib/animations";
 import { LayoutList, LayoutGrid, AlignJustify } from "lucide-react";

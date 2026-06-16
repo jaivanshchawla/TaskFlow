@@ -1,5 +1,5 @@
 "use client";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { useAdminStats } from "@/hooks/useTasks";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { PAGE_VARIANTS } from "@/lib/animations";

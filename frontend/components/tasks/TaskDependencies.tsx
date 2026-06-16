@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { AlertTriangle, X, Search, Link as LinkIcon } from "lucide-react";
 import { useTaskDependencies, useAddDependency, useRemoveDependency, useSearchTasksForDeps } from "@/hooks/useTasks";
 import { PRIORITY_OPTIONS } from "@/lib/constants";

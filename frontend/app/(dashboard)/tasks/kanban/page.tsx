@@ -1,6 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { PAGE_VARIANTS } from "@/lib/animations";

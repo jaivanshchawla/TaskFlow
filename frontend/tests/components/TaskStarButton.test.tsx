@@ -4,7 +4,7 @@ import React from "react";
 import { TaskStarButton } from "@/components/tasks/TaskStarButton";
 import { useTaskStore } from "@/store/taskStore";
 
-vi.mock("framer-motion", () => {
+vi.mock("motion/react", () => {
   const SKIP_PROPS = new Set(["initial", "animate", "exit", "variants", "transition", "whileHover", "whileTap", "onHoverStart", "onHoverEnd", "layout", "layoutId"]);
   function filterProps(props: Record<string, unknown>) {
     const filtered: Record<string, unknown> = {};

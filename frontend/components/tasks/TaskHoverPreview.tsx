@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { useTask } from "@/hooks/useTasks";
 import { PRIORITY_OPTIONS, STATUS_OPTIONS } from "@/lib/constants";
 
