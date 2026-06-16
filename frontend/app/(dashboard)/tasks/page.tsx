@@ -9,6 +9,7 @@ import { TaskFilters } from "@/components/tasks/TaskFilters";
 import { TaskCard } from "@/components/tasks/TaskCard";
 import { TaskListSkeleton } from "@/components/shared/SkeletonLoader";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { VirtualList } from "@/components/shared/VirtualList";
 import { PAGE_VARIANTS, LIST_CONTAINER } from "@/lib/animations";
 
 export default function TasksPage() {
@@ -50,6 +51,13 @@ export default function TasksPage() {
           actionLabel="Create task"
           onAction={() => window.location.href = "/tasks/new"}
           icon="tasks"
+        />
+      ) : tasks.length > 50 ? (
+        <VirtualList
+          items={tasks}
+          itemHeight={72}
+          className="space-y-2"
+          renderItem={(task) => <TaskCard task={task} />}
         />
       ) : (
         <motion.ul variants={LIST_CONTAINER} initial="initial" animate="animate" className="space-y-2">

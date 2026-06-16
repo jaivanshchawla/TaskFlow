@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -22,8 +22,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const queryClient = useQueryClient();
   const { getToken } = useAuth();
   const { setCommandPaletteOpen, setViewMode, setActiveTaskId } = useUIStore();
+  const [isOffline, setIsOffline] = useState(false);
 
   useWebSocket();
+
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch((err) => {
+        logger.error("Dashboard", "SW registration failed", { error: String(err) });
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleOffline = () => {
+      setIsOffline(true);
+      logger.warn("Dashboard", "Network offline detected");
+    };
+    const handleOnline = () => {
+      setIsOffline(false);
+      logger.info("Dashboard", "Network back online, refetching all queries");
+      queryClient.refetchQueries();
+    };
+
+    setIsOffline(!navigator.onLine);
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [queryClient]);
 
   useEffect(() => {
     fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/health`, {
@@ -104,10 +133,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg-base)" }}>
+      {isOffline && (
+        <div
+          className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-center py-1.5 text-xs font-medium"
+          style={{ background: "var(--bg-elevated)", color: "var(--text-muted)", borderBottom: "1px solid var(--border-subtle)" }}
+        >
+          You&apos;re offline — changes will sync when reconnected
+        </div>
+      )}
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-6" style={isOffline ? { marginTop: 32 } : undefined}>
           {children}
         </main>
       </div>

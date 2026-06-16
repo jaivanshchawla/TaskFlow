@@ -379,13 +379,28 @@ export function useCreateLabel() {
         token,
       });
     },
+    onMutate: async (newLabel) => {
+      await queryClient.cancelQueries({ queryKey: labelKeys.all });
+      const previous = queryClient.getQueryData<Label[]>(labelKeys.all);
+      const optimistic: Label = {
+        id: crypto.randomUUID(),
+        name: newLabel.name,
+        color: newLabel.color,
+      };
+      queryClient.setQueryData<Label[]>(labelKeys.all, (old) => [...(old ?? []), optimistic]);
+      logger.debug("Mutation", "Optimistic create label applied", { name: newLabel.name });
+      return { previous };
+    },
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(labelKeys.all, ctx.previous);
+      }
+      logger.warn("Labels", "Optimistic create label rolling back", { error: String(err) });
+      toast.error("Failed to create label. Changes reverted.");
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: labelKeys.all });
       toast.success("Label created");
-    },
-    onError: (err) => {
-      logger.error("Labels", "Failed to create label", { error: String(err) });
-      toast.error("Failed to create label");
     },
   });
 }
@@ -403,13 +418,25 @@ export function useUpdateLabel() {
         token,
       });
     },
+    onMutate: async ({ id, data }) => {
+      await queryClient.cancelQueries({ queryKey: labelKeys.all });
+      const previous = queryClient.getQueryData<Label[]>(labelKeys.all);
+      queryClient.setQueryData<Label[]>(labelKeys.all, (old) =>
+        old?.map((l) => (l.id === id ? { ...l, ...data } : l))
+      );
+      logger.debug("Mutation", "Optimistic update label applied", { labelId: id });
+      return { previous };
+    },
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(labelKeys.all, ctx.previous);
+      }
+      logger.warn("Labels", "Optimistic update label rolling back", { error: String(err) });
+      toast.error("Failed to update label. Changes reverted.");
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: labelKeys.all });
       toast.success("Label updated");
-    },
-    onError: (err) => {
-      logger.error("Labels", "Failed to update label", { error: String(err) });
-      toast.error("Failed to update label");
     },
   });
 }
@@ -423,14 +450,24 @@ export function useDeleteLabel() {
       logger.info("Labels", "Deleting label", { labelId: id });
       await apiFetch(`/api/v1/labels/${id}`, { method: "DELETE", token });
     },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: labelKeys.all });
+      const previous = queryClient.getQueryData<Label[]>(labelKeys.all);
+      queryClient.setQueryData<Label[]>(labelKeys.all, (old) => old?.filter((l) => l.id !== id));
+      logger.debug("Mutation", "Optimistic delete label applied", { labelId: id });
+      return { previous };
+    },
+    onError: (err, _id, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(labelKeys.all, ctx.previous);
+      }
+      logger.warn("Labels", "Optimistic delete label rolling back", { error: String(err) });
+      toast.error("Failed to delete label. Changes reverted.");
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: labelKeys.all });
       queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
       toast.success("Label deleted");
-    },
-    onError: (err) => {
-      logger.error("Labels", "Failed to delete label", { error: String(err) });
-      toast.error("Failed to delete label");
     },
   });
 }
@@ -464,13 +501,31 @@ export function useCreateSubtask(taskId: string) {
         token,
       });
     },
+    onMutate: async (newSubtask) => {
+      await queryClient.cancelQueries({ queryKey: subtaskKeys.byTask(taskId) });
+      const previous = queryClient.getQueryData<Subtask[]>(subtaskKeys.byTask(taskId));
+      const existing = previous ?? [];
+      const optimistic: Subtask = {
+        id: crypto.randomUUID(),
+        task_id: taskId,
+        title: newSubtask.title,
+        completed: false,
+        position: existing.length,
+      };
+      queryClient.setQueryData<Subtask[]>(subtaskKeys.byTask(taskId), [...existing, optimistic]);
+      logger.debug("Mutation", "Optimistic create subtask applied", { taskId });
+      return { previous };
+    },
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(subtaskKeys.byTask(taskId), ctx.previous);
+      }
+      logger.warn("Subtasks", "Optimistic create subtask rolling back", { error: String(err) });
+      toast.error("Failed to add subtask. Changes reverted.");
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) });
       queryClient.invalidateQueries({ queryKey: subtaskKeys.byTask(taskId) });
-    },
-    onError: (err) => {
-      logger.error("Subtasks", "Failed to create subtask", { error: String(err) });
-      toast.error("Failed to add subtask");
     },
   });
 }
@@ -488,13 +543,25 @@ export function useUpdateSubtask(taskId: string) {
         token,
       });
     },
+    onMutate: async ({ subtaskId, data }) => {
+      await queryClient.cancelQueries({ queryKey: subtaskKeys.byTask(taskId) });
+      const previous = queryClient.getQueryData<Subtask[]>(subtaskKeys.byTask(taskId));
+      queryClient.setQueryData<Subtask[]>(subtaskKeys.byTask(taskId), (old) =>
+        old?.map((s) => (s.id === subtaskId ? { ...s, ...data } : s))
+      );
+      logger.debug("Mutation", "Optimistic update subtask applied", { subtaskId });
+      return { previous };
+    },
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(subtaskKeys.byTask(taskId), ctx.previous);
+      }
+      logger.warn("Subtasks", "Optimistic update subtask rolling back", { error: String(err) });
+      toast.error("Failed to update subtask. Changes reverted.");
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) });
       queryClient.invalidateQueries({ queryKey: subtaskKeys.byTask(taskId) });
-    },
-    onError: (err) => {
-      logger.error("Subtasks", "Failed to update subtask", { error: String(err) });
-      toast.error("Failed to update subtask");
     },
   });
 }
@@ -508,13 +575,25 @@ export function useDeleteSubtask(taskId: string) {
       logger.info("Subtasks", "Deleting subtask", { subtaskId });
       await apiFetch(`/api/v1/tasks/${taskId}/subtasks/${subtaskId}`, { method: "DELETE", token });
     },
+    onMutate: async (subtaskId) => {
+      await queryClient.cancelQueries({ queryKey: subtaskKeys.byTask(taskId) });
+      const previous = queryClient.getQueryData<Subtask[]>(subtaskKeys.byTask(taskId));
+      queryClient.setQueryData<Subtask[]>(subtaskKeys.byTask(taskId), (old) =>
+        old?.filter((s) => s.id !== subtaskId)
+      );
+      logger.debug("Mutation", "Optimistic delete subtask applied", { subtaskId });
+      return { previous };
+    },
+    onError: (err, subtaskId, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(subtaskKeys.byTask(taskId), ctx.previous);
+      }
+      logger.warn("Subtasks", "Optimistic delete subtask rolling back", { error: String(err) });
+      toast.error("Failed to delete subtask. Changes reverted.");
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) });
       queryClient.invalidateQueries({ queryKey: subtaskKeys.byTask(taskId) });
-    },
-    onError: (err) => {
-      logger.error("Subtasks", "Failed to delete subtask", { error: String(err) });
-      toast.error("Failed to delete subtask");
     },
   });
 }
@@ -567,14 +646,33 @@ export function useCreateComment(taskId: string) {
         token,
       });
     },
+    onMutate: async (newComment) => {
+      await queryClient.cancelQueries({ queryKey: commentKeys.byTask(taskId) });
+      const previous = queryClient.getQueryData<Comment[]>(commentKeys.byTask(taskId));
+      const optimistic: Comment = {
+        id: crypto.randomUUID(),
+        task_id: taskId,
+        user_id: "",
+        content: newComment.content,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        user: { id: "", clerk_user_id: "", email: "", name: "You", avatar_url: null, role: "user" },
+      };
+      queryClient.setQueryData<Comment[]>(commentKeys.byTask(taskId), [...(previous ?? []), optimistic]);
+      logger.debug("Mutation", "Optimistic create comment applied", { taskId });
+      return { previous };
+    },
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(commentKeys.byTask(taskId), ctx.previous);
+      }
+      logger.warn("Comments", "Optimistic create comment rolling back", { error: String(err) });
+      toast.error("Failed to add comment. Changes reverted.");
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: commentKeys.byTask(taskId) });
       queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) });
       toast.success("Comment added");
-    },
-    onError: (err) => {
-      logger.error("Comments", "Failed to create comment", { error: String(err) });
-      toast.error("Failed to add comment");
     },
   });
 }
@@ -612,14 +710,26 @@ export function useDeleteComment(taskId: string) {
       logger.info("Comments", "Deleting comment", { commentId });
       await apiFetch(`/api/v1/tasks/${taskId}/comments/${commentId}`, { method: "DELETE", token });
     },
+    onMutate: async (commentId) => {
+      await queryClient.cancelQueries({ queryKey: commentKeys.byTask(taskId) });
+      const previous = queryClient.getQueryData<Comment[]>(commentKeys.byTask(taskId));
+      queryClient.setQueryData<Comment[]>(commentKeys.byTask(taskId), (old) =>
+        old?.filter((c) => c.id !== commentId)
+      );
+      logger.debug("Mutation", "Optimistic delete comment applied", { commentId });
+      return { previous };
+    },
+    onError: (err, commentId, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(commentKeys.byTask(taskId), ctx.previous);
+      }
+      logger.warn("Comments", "Optimistic delete comment rolling back", { error: String(err) });
+      toast.error("Failed to delete comment. Changes reverted.");
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: commentKeys.byTask(taskId) });
       queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) });
       toast.success("Comment deleted");
-    },
-    onError: (err) => {
-      logger.error("Comments", "Failed to delete comment", { error: String(err) });
-      toast.error("Failed to delete comment");
     },
   });
 }
@@ -653,14 +763,33 @@ export function useCreateAttachment(taskId: string) {
         token,
       });
     },
+    onMutate: async (newAttachment) => {
+      await queryClient.cancelQueries({ queryKey: attachmentKeys.byTask(taskId) });
+      const previous = queryClient.getQueryData<Attachment[]>(attachmentKeys.byTask(taskId));
+      const optimistic: Attachment = {
+        id: crypto.randomUUID(),
+        task_id: taskId,
+        file_name: newAttachment.file_name,
+        file_url: newAttachment.file_url,
+        file_size: newAttachment.file_size,
+        file_type: newAttachment.file_type,
+        created_at: new Date().toISOString(),
+      };
+      queryClient.setQueryData<Attachment[]>(attachmentKeys.byTask(taskId), [...(previous ?? []), optimistic]);
+      logger.debug("Mutation", "Optimistic create attachment applied", { taskId });
+      return { previous };
+    },
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(attachmentKeys.byTask(taskId), ctx.previous);
+      }
+      logger.warn("Attachments", "Optimistic create attachment rolling back", { error: String(err) });
+      toast.error("Failed to add attachment. Changes reverted.");
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: attachmentKeys.byTask(taskId) });
       queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) });
       toast.success("Attachment added");
-    },
-    onError: (err) => {
-      logger.error("Attachments", "Failed to create attachment", { error: String(err) });
-      toast.error("Failed to add attachment");
     },
   });
 }
@@ -674,14 +803,26 @@ export function useDeleteAttachment(taskId: string) {
       logger.info("Attachments", "Deleting attachment", { attachmentId });
       await apiFetch(`/api/v1/tasks/${taskId}/attachments/${attachmentId}`, { method: "DELETE", token });
     },
+    onMutate: async (attachmentId) => {
+      await queryClient.cancelQueries({ queryKey: attachmentKeys.byTask(taskId) });
+      const previous = queryClient.getQueryData<Attachment[]>(attachmentKeys.byTask(taskId));
+      queryClient.setQueryData<Attachment[]>(attachmentKeys.byTask(taskId), (old) =>
+        old?.filter((a) => a.id !== attachmentId)
+      );
+      logger.debug("Mutation", "Optimistic delete attachment applied", { attachmentId });
+      return { previous };
+    },
+    onError: (err, attachmentId, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(attachmentKeys.byTask(taskId), ctx.previous);
+      }
+      logger.warn("Attachments", "Optimistic delete attachment rolling back", { error: String(err) });
+      toast.error("Failed to delete attachment. Changes reverted.");
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: attachmentKeys.byTask(taskId) });
       queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) });
       toast.success("Attachment deleted");
-    },
-    onError: (err) => {
-      logger.error("Attachments", "Failed to delete attachment", { error: String(err) });
-      toast.error("Failed to delete attachment");
     },
   });
 }
@@ -744,13 +885,33 @@ export function useCreateTemplate() {
         token,
       });
     },
+    onMutate: async (newTemplate) => {
+      await queryClient.cancelQueries({ queryKey: templateKeys.all });
+      const previous = queryClient.getQueryData<TaskTemplate[]>(templateKeys.all);
+      const optimistic: TaskTemplate = {
+        id: crypto.randomUUID(),
+        user_id: "",
+        name: newTemplate.name,
+        title_template: newTemplate.title_template,
+        description_template: newTemplate.description_template,
+        priority: newTemplate.priority,
+        default_labels: newTemplate.default_labels,
+        created_at: new Date().toISOString(),
+      };
+      queryClient.setQueryData<TaskTemplate[]>(templateKeys.all, [...(previous ?? []), optimistic]);
+      logger.debug("Mutation", "Optimistic create template applied", { name: newTemplate.name });
+      return { previous };
+    },
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(templateKeys.all, ctx.previous);
+      }
+      logger.warn("Templates", "Optimistic create template rolling back", { error: String(err) });
+      toast.error("Failed to create template. Changes reverted.");
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: templateKeys.all });
       toast.success("Template created");
-    },
-    onError: (err) => {
-      logger.error("Templates", "Failed to create template", { error: String(err) });
-      toast.error("Failed to create template");
     },
   });
 }
@@ -764,13 +925,25 @@ export function useDeleteTemplate() {
       logger.info("Templates", "Deleting template", { templateId: id });
       await apiFetch(`/api/v1/templates/${id}`, { method: "DELETE", token });
     },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: templateKeys.all });
+      const previous = queryClient.getQueryData<TaskTemplate[]>(templateKeys.all);
+      queryClient.setQueryData<TaskTemplate[]>(templateKeys.all, (old) =>
+        old?.filter((t) => t.id !== id)
+      );
+      logger.debug("Mutation", "Optimistic delete template applied", { templateId: id });
+      return { previous };
+    },
+    onError: (err, id, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(templateKeys.all, ctx.previous);
+      }
+      logger.warn("Templates", "Optimistic delete template rolling back", { error: String(err) });
+      toast.error("Failed to delete template. Changes reverted.");
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: templateKeys.all });
       toast.success("Template deleted");
-    },
-    onError: (err) => {
-      logger.error("Templates", "Failed to delete template", { error: String(err) });
-      toast.error("Failed to delete template");
     },
   });
 }

@@ -63,11 +63,52 @@ func setupTestRouter(db *gorm.DB) *gin.Engine {
 		tasks.DELETE("/:id", handlers.DeleteTask(db, hub))
 	}
 
+	// Stats
+	api.GET("/stats", handlers.GetStats(db))
+
+	// Bulk create
+	tasks.POST("/bulk-create", handlers.BulkCreateTasks(db, hub))
+
+	// Subtasks
+	tasks.POST("/:id/subtasks", handlers.CreateSubtask(db, hub))
+	tasks.PATCH("/:id/subtasks/:subtask_id", handlers.UpdateSubtask(db, hub))
+	tasks.DELETE("/:id/subtasks/:subtask_id", handlers.DeleteSubtask(db, hub))
+	tasks.PATCH("/:id/subtasks/reorder", handlers.ReorderSubtasks(db))
+
+	// Comments
+	tasks.GET("/:id/comments", handlers.ListComments(db))
+	tasks.POST("/:id/comments", handlers.CreateComment(db, hub))
+
+	// Activity
+	tasks.GET("/:id/activity", handlers.GetActivity(db))
+
+	// Dependencies
+	tasks.GET("/:id/dependencies", handlers.ListDependencies(db))
+	tasks.POST("/:id/dependencies", handlers.AddDependency(db))
+	tasks.DELETE("/:id/dependencies/:dep_id", handlers.RemoveDependency(db))
+
+	// Time entries
+	tasks.GET("/:id/time-entries", handlers.ListTimeEntries(db))
+	tasks.POST("/:id/time-entries", handlers.StartTimeEntry(db))
+	tasks.PATCH("/:id/time-entries/:entry_id", handlers.StopTimeEntry(db))
+	tasks.DELETE("/:id/time-entries/:entry_id", handlers.DeleteTimeEntry(db))
+
 	// Labels
 	labels := api.Group("/labels")
 	{
 		labels.GET("", handlers.ListLabels(db))
 		labels.POST("", handlers.CreateLabel(db))
+		labels.PATCH("/:id", handlers.UpdateLabel(db))
+		labels.DELETE("/:id", handlers.DeleteLabel(db))
+	}
+
+	// Templates
+	templates := api.Group("/templates")
+	{
+		templates.GET("", handlers.ListTemplates(db))
+		templates.POST("", handlers.CreateTemplate(db))
+		templates.DELETE("/:id", handlers.DeleteTemplate(db))
+		templates.POST("/:id/apply", handlers.ApplyTemplate(db, hub))
 	}
 
 	return r
@@ -321,4 +362,396 @@ func TestHealthEndpoint(t *testing.T) {
 	var resp map[string]interface{}
 	json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.Equal(t, "ok", resp["status"])
+}
+
+func TestGetStats_Success(t *testing.T) {
+	db := setupTestDB(t)
+	user := createTestUser(t, db)
+	defer cleanupTestData(t, db, user.ID)
+
+	createTestTask(t, db, user.ID)
+	createTestTask(t, db, user.ID)
+
+	router := setupTestRouter(db)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/stats", nil)
+	req.Header.Set("X-Test-User-Id", user.ID.String())
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.Equal(t, true, resp["success"])
+	data := resp["data"].(map[string]interface{})
+	assert.NotNil(t, data["total_tasks"])
+	assert.NotNil(t, data["by_status"])
+	assert.NotNil(t, data["by_priority"])
+}
+
+func TestBulkCreateTasks_Success(t *testing.T) {
+	db := setupTestDB(t)
+	user := createTestUser(t, db)
+	defer cleanupTestData(t, db, user.ID)
+
+	router := setupTestRouter(db)
+
+	body := map[string]interface{}{
+		"tasks": []map[string]interface{}{
+			{"title": "Bulk Task 1", "status": "todo", "priority": "high"},
+			{"title": "Bulk Task 2", "status": "in_progress", "priority": "low"},
+		},
+	}
+	jsonBody, _ := json.Marshal(body)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tasks/bulk-create", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Test-User-Id", user.ID.String())
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.Equal(t, true, resp["success"])
+	data := resp["data"].(map[string]interface{})
+	assert.Equal(t, float64(2), data["count"])
+}
+
+func TestBulkCreateTasks_EmptyList(t *testing.T) {
+	db := setupTestDB(t)
+	user := createTestUser(t, db)
+	defer cleanupTestData(t, db, user.ID)
+
+	router := setupTestRouter(db)
+
+	body := map[string]interface{}{
+		"tasks": []map[string]interface{}{},
+	}
+	jsonBody, _ := json.Marshal(body)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tasks/bulk-create", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Test-User-Id", user.ID.String())
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestListLabels_Success(t *testing.T) {
+	db := setupTestDB(t)
+	user := createTestUser(t, db)
+	defer cleanupTestData(t, db, user.ID)
+
+	createTestLabel(t, db, user.ID)
+
+	router := setupTestRouter(db)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/labels", nil)
+	req.Header.Set("X-Test-User-Id", user.ID.String())
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.Equal(t, true, resp["success"])
+}
+
+func TestCreateLabel_Success(t *testing.T) {
+	db := setupTestDB(t)
+	user := createTestUser(t, db)
+	defer cleanupTestData(t, db, user.ID)
+
+	router := setupTestRouter(db)
+
+	body := map[string]interface{}{
+		"name":  "New Label",
+		"color": "#ef4444",
+	}
+	jsonBody, _ := json.Marshal(body)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/labels", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Test-User-Id", user.ID.String())
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.Equal(t, true, resp["success"])
+}
+
+func TestUpdateLabel_Success(t *testing.T) {
+	db := setupTestDB(t)
+	user := createTestUser(t, db)
+	defer cleanupTestData(t, db, user.ID)
+
+	label := createTestLabel(t, db, user.ID)
+	router := setupTestRouter(db)
+
+	body := map[string]interface{}{
+		"name": "Updated Label",
+	}
+	jsonBody, _ := json.Marshal(body)
+
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/labels/"+label.ID.String(), bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Test-User-Id", user.ID.String())
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestDeleteLabel_Success(t *testing.T) {
+	db := setupTestDB(t)
+	user := createTestUser(t, db)
+	defer cleanupTestData(t, db, user.ID)
+
+	label := createTestLabel(t, db, user.ID)
+	router := setupTestRouter(db)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/labels/"+label.ID.String(), nil)
+	req.Header.Set("X-Test-User-Id", user.ID.String())
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNoContent, w.Code)
+}
+
+func TestListDependencies_Success(t *testing.T) {
+	db := setupTestDB(t)
+	user := createTestUser(t, db)
+	defer cleanupTestData(t, db, user.ID)
+
+	task1 := createTestTask(t, db, user.ID)
+	task2 := createTestTask(t, db, user.ID)
+
+	router := setupTestRouter(db)
+
+	body := map[string]interface{}{
+		"depends_on_id": task1.ID.String(),
+	}
+	jsonBody, _ := json.Marshal(body)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tasks/"+task2.ID.String()+"/dependencies", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Test-User-Id", user.ID.String())
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	req2 := httptest.NewRequest(http.MethodGet, "/api/v1/tasks/"+task2.ID.String()+"/dependencies", nil)
+	req2.Header.Set("X-Test-User-Id", user.ID.String())
+
+	w2 := httptest.NewRecorder()
+	router.ServeHTTP(w2, req2)
+
+	assert.Equal(t, http.StatusOK, w2.Code)
+}
+
+func TestAddDependency_SelfDependence(t *testing.T) {
+	db := setupTestDB(t)
+	user := createTestUser(t, db)
+	defer cleanupTestData(t, db, user.ID)
+
+	task := createTestTask(t, db, user.ID)
+	router := setupTestRouter(db)
+
+	body := map[string]interface{}{
+		"depends_on_id": task.ID.String(),
+	}
+	jsonBody, _ := json.Marshal(body)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tasks/"+task.ID.String()+"/dependencies", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Test-User-Id", user.ID.String())
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestRemoveDependency_Success(t *testing.T) {
+	db := setupTestDB(t)
+	user := createTestUser(t, db)
+	defer cleanupTestData(t, db, user.ID)
+
+	task1 := createTestTask(t, db, user.ID)
+	task2 := createTestTask(t, db, user.ID)
+
+	router := setupTestRouter(db)
+
+	body := map[string]interface{}{
+		"depends_on_id": task1.ID.String(),
+	}
+	jsonBody, _ := json.Marshal(body)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tasks/"+task2.ID.String()+"/dependencies", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Test-User-Id", user.ID.String())
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	req2 := httptest.NewRequest(http.MethodDelete, "/api/v1/tasks/"+task2.ID.String()+"/dependencies/"+task1.ID.String(), nil)
+	req2.Header.Set("X-Test-User-Id", user.ID.String())
+	w2 := httptest.NewRecorder()
+	router.ServeHTTP(w2, req2)
+	assert.Equal(t, http.StatusNoContent, w2.Code)
+}
+
+func TestTimeEntriesCRUD(t *testing.T) {
+	db := setupTestDB(t)
+	user := createTestUser(t, db)
+	defer cleanupTestData(t, db, user.ID)
+
+	task := createTestTask(t, db, user.ID)
+	router := setupTestRouter(db)
+
+	// Start a time entry
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tasks/"+task.ID.String()+"/time-entries", nil)
+	req.Header.Set("X-Test-User-Id", user.ID.String())
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	var startResp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &startResp)
+	data := startResp["data"].(map[string]interface{})
+	entryID := data["id"].(string)
+
+	// List time entries
+	req2 := httptest.NewRequest(http.MethodGet, "/api/v1/tasks/"+task.ID.String()+"/time-entries", nil)
+	req2.Header.Set("X-Test-User-Id", user.ID.String())
+	w2 := httptest.NewRecorder()
+	router.ServeHTTP(w2, req2)
+	assert.Equal(t, http.StatusOK, w2.Code)
+
+	// Stop the time entry
+	req3 := httptest.NewRequest(http.MethodPatch, "/api/v1/tasks/"+task.ID.String()+"/time-entries/"+entryID, nil)
+	req3.Header.Set("X-Test-User-Id", user.ID.String())
+	w3 := httptest.NewRecorder()
+	router.ServeHTTP(w3, req3)
+	assert.Equal(t, http.StatusOK, w3.Code)
+
+	// Delete the time entry
+	req4 := httptest.NewRequest(http.MethodDelete, "/api/v1/tasks/"+task.ID.String()+"/time-entries/"+entryID, nil)
+	req4.Header.Set("X-Test-User-Id", user.ID.String())
+	w4 := httptest.NewRecorder()
+	router.ServeHTTP(w4, req4)
+	assert.Equal(t, http.StatusNoContent, w4.Code)
+}
+
+func TestStartTimeEntry_Conflict(t *testing.T) {
+	db := setupTestDB(t)
+	user := createTestUser(t, db)
+	defer cleanupTestData(t, db, user.ID)
+
+	task := createTestTask(t, db, user.ID)
+	router := setupTestRouter(db)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tasks/"+task.ID.String()+"/time-entries", nil)
+	req.Header.Set("X-Test-User-Id", user.ID.String())
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	req2 := httptest.NewRequest(http.MethodPost, "/api/v1/tasks/"+task.ID.String()+"/time-entries", nil)
+	req2.Header.Set("X-Test-User-Id", user.ID.String())
+	w2 := httptest.NewRecorder()
+	router.ServeHTTP(w2, req2)
+	assert.Equal(t, http.StatusConflict, w2.Code)
+}
+
+func TestCreateComment_Success(t *testing.T) {
+	db := setupTestDB(t)
+	user := createTestUser(t, db)
+	defer cleanupTestData(t, db, user.ID)
+
+	task := createTestTask(t, db, user.ID)
+	router := setupTestRouter(db)
+
+	body := map[string]interface{}{
+		"content": "This is a comment",
+	}
+	jsonBody, _ := json.Marshal(body)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tasks/"+task.ID.String()+"/comments", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Test-User-Id", user.ID.String())
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+}
+
+func TestListComments_Success(t *testing.T) {
+	db := setupTestDB(t)
+	user := createTestUser(t, db)
+	defer cleanupTestData(t, db, user.ID)
+
+	task := createTestTask(t, db, user.ID)
+	router := setupTestRouter(db)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/tasks/"+task.ID.String()+"/comments", nil)
+	req.Header.Set("X-Test-User-Id", user.ID.String())
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestGetActivity_Success(t *testing.T) {
+	db := setupTestDB(t)
+	user := createTestUser(t, db)
+	defer cleanupTestData(t, db, user.ID)
+
+	task := createTestTask(t, db, user.ID)
+	router := setupTestRouter(db)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/tasks/"+task.ID.String()+"/activity", nil)
+	req.Header.Set("X-Test-User-Id", user.ID.String())
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestExportTasksCSV_Success(t *testing.T) {
+	db := setupTestDB(t)
+	user := createTestUser(t, db)
+	defer cleanupTestData(t, db, user.ID)
+
+	createTestTask(t, db, user.ID)
+	router := setupTestRouter(db)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/tasks/export", nil)
+	req.Header.Set("X-Test-User-Id", user.ID.String())
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "text/csv", w.Header().Get("Content-Type"))
 }
