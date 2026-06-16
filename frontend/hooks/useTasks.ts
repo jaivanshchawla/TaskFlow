@@ -193,6 +193,32 @@ export function useCreateTask() {
     onMutate: async (newTask) => {
       await queryClient.cancelQueries({ queryKey: taskKeys.lists() });
       const previous = queryClient.getQueriesData<PaginatedResponse<Task>>({ queryKey: taskKeys.lists() });
+
+      queryClient.setQueriesData<PaginatedResponse<Task>>(
+        { queryKey: taskKeys.lists() },
+        (old) => {
+          if (!old) return old;
+          const optimisticTask: Task = {
+            id: `temp-${Date.now()}`,
+            user_id: "",
+            title: newTask.title,
+            description: newTask.description ?? null,
+            status: newTask.status || "todo",
+            priority: newTask.priority || "medium",
+            due_date: newTask.due_date ?? null,
+            position: 0,
+            labels: [],
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          return {
+            ...old,
+            data: [optimisticTask, ...old.data],
+            meta: { ...old.meta, total: old.meta.total + 1 },
+          };
+        }
+      );
+
       logger.debug("Mutation", "Optimistic create applied", { title: newTask.title });
       return { previous };
     },
@@ -475,9 +501,13 @@ export function useDeleteLabel() {
 /* ─── Subtask Hooks ─── */
 export function useSubtasks(taskId: string) {
   const { getToken } = useAuth();
-  return useQuery({
+  const queryClient = useQueryClient();
+  return useQuery<Subtask[]>({
     queryKey: subtaskKeys.byTask(taskId),
     queryFn: async () => {
+      const cached = queryClient.getQueryData<Task>(taskKeys.detail(taskId));
+      if (cached?.subtasks) return cached.subtasks;
+
       const token = await getToken();
       logger.info("Subtasks", "Fetching subtasks", { taskId });
       const res = await apiFetch<{ success: boolean; data: Task }>(`/api/v1/tasks/${taskId}`, { token });
@@ -613,6 +643,7 @@ export function useReorderSubtasks(taskId: string) {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) });
+      queryClient.invalidateQueries({ queryKey: subtaskKeys.byTask(taskId) });
     },
   });
 }
@@ -692,6 +723,7 @@ export function useUpdateComment(taskId: string) {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: commentKeys.byTask(taskId) });
+      queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) });
       toast.success("Comment updated");
     },
     onError: (err) => {

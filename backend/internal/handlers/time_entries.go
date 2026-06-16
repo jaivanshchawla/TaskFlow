@@ -30,7 +30,7 @@ func ListTimeEntries(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		var entries []models.TimeEntry
-		if err := db.Where("task_id = ?", task.ID).Order("started_at DESC").Find(&entries).Error; err != nil {
+		if err := db.Where("task_id = ?", task.ID).Order("started_at DESC").Limit(100).Find(&entries).Error; err != nil {
 			logger.Error("Failed to list time entries", zap.Error(err))
 			response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list time entries")
 			return

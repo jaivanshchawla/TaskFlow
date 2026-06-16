@@ -24,7 +24,11 @@ func ListTemplates(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		var templates []models.TaskTemplate
-		db.Where("user_id = ?", userID).Order("created_at DESC").Find(&templates)
+		if err := db.Where("user_id = ?", userID).Order("created_at DESC").Limit(100).Find(&templates).Error; err != nil {
+			logger.Error("Failed to list templates", zap.Error(err))
+			response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list templates")
+			return
+		}
 
 		response.Success(c, http.StatusOK, templates)
 	}

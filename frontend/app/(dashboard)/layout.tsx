@@ -64,10 +64,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     const prefetchData = async () => {
-      try {
-        const token = await getToken();
-        if (!token) return;
+      const token = await getToken();
+      if (!token) return;
 
+      await Promise.allSettled([
         queryClient.prefetchQuery({
           queryKey: statsKeys.all,
           queryFn: async () => {
@@ -75,8 +75,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             return res.data;
           },
           staleTime: 60_000,
-        });
-
+        }),
         queryClient.prefetchQuery({
           queryKey: taskKeys.list({ ...DEFAULT_FILTERS, page: 1, perPage: 10 }),
           queryFn: async () => {
@@ -86,8 +85,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             );
           },
           staleTime: 30_000,
-        });
-
+        }),
         queryClient.prefetchQuery({
           queryKey: labelKeys.all,
           queryFn: async () => {
@@ -95,12 +93,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             return res.data;
           },
           staleTime: 300_000,
-        });
+        }),
+      ]);
 
-        logger.info("Dashboard", "Prefetched stats, tasks, labels");
-      } catch {
-        logger.debug("Dashboard", "Prefetch skipped (no token)");
-      }
+      logger.info("Dashboard", "Prefetched stats, tasks, labels");
     };
 
     prefetchData();

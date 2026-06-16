@@ -187,12 +187,24 @@ func ReorderSubtasks(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
+		caseStmt := "CASE "
+		args := []interface{}{}
 		for i, idStr := range input.OrderedIDs {
 			id, err := uuid.Parse(idStr)
 			if err != nil {
 				continue
 			}
-			db.Model(&models.Subtask{}).Where("id = ? AND task_id = ?", id, task.ID).Update("position", i)
+			caseStmt += "WHEN id = ? THEN ? "
+			args = append(args, id, i)
+		}
+		caseStmt += "END"
+		args = append(args, task.ID)
+
+		if err := db.Model(&models.Subtask{}).Where("task_id = ?", task.ID).
+			Update("position", gorm.Expr(caseStmt, args...)).Error; err != nil {
+			logger.Error("Failed to reorder subtasks", zap.Error(err))
+			response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to reorder subtasks")
+			return
 		}
 
 		logger.Info("Subtasks reordered", zap.String("task_id", taskID), zap.Int("count", len(input.OrderedIDs)))

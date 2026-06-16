@@ -48,60 +48,88 @@ func BulkCreateTasks(db *gorm.DB, hub *services.Hub) gin.HandlerFunc {
 		validPriorities := map[string]bool{"low": true, "medium": true, "high": true, "urgent": true}
 
 		var created []models.Task
+		var allLabelIDs []interface{}
 
-		for _, t := range input.Tasks {
-			if t.Title == "" {
-				continue
-			}
-
-			status := t.Status
-			if status == "" || !validStatuses[status] {
-				status = "todo"
-			}
-
-			priority := t.Priority
-			if priority == "" || !validPriorities[priority] {
-				priority = "medium"
-			}
-
-			task := models.Task{
-				UserID:      userID,
-				Title:       t.Title,
-				Description: t.Description,
-				Status:      status,
-				Priority:    priority,
-				DueDate:     t.DueDate,
-			}
-
-			if err := db.Create(&task).Error; err != nil {
-				logger.Error("Failed to create task in bulk", zap.String("title", t.Title), zap.Error(err))
-				continue
-			}
-
-			if len(t.LabelIDs) > 0 {
-				labelIDs := []interface{}{}
-				for _, lid := range t.LabelIDs {
-					labelID, err := uuid.Parse(lid)
-					if err != nil {
-						continue
-					}
-					labelIDs = append(labelIDs, task.ID, labelID)
+		txErr := db.Transaction(func(tx *gorm.DB) error {
+			var tasksToCreate []models.Task
+			for _, t := range input.Tasks {
+				if t.Title == "" {
+					continue
 				}
-				if len(labelIDs) > 0 {
-					placeholders := ""
-					for i := 0; i < len(labelIDs)/2; i++ {
-						if i > 0 {
-							placeholders += ", "
+
+				status := t.Status
+				if status == "" || !validStatuses[status] {
+					status = "todo"
+				}
+
+				priority := t.Priority
+				if priority == "" || !validPriorities[priority] {
+					priority = "medium"
+				}
+
+				tasksToCreate = append(tasksToCreate, models.Task{
+					UserID:      userID,
+					Title:       t.Title,
+					Description: t.Description,
+					Status:      status,
+					Priority:    priority,
+					DueDate:     t.DueDate,
+				})
+			}
+
+			if len(tasksToCreate) == 0 {
+				return nil
+			}
+
+			if createErr := tx.Create(&tasksToCreate).Error; createErr != nil {
+				return createErr
+			}
+
+			for i, t := range input.Tasks {
+				if i >= len(tasksToCreate) {
+					break
+				}
+				if len(t.LabelIDs) > 0 {
+					for _, lid := range t.LabelIDs {
+						labelID, parseErr := uuid.Parse(lid)
+						if parseErr != nil {
+							continue
 						}
-						placeholders += "(?, ?)"
+						allLabelIDs = append(allLabelIDs, tasksToCreate[i].ID, labelID)
 					}
-					db.Exec("INSERT INTO task_labels (task_id, label_id) VALUES "+placeholders+" ON CONFLICT DO NOTHING", labelIDs...)
 				}
-				db.Preload("Labels").First(&task, task.ID)
 			}
 
-			services.LogActivity(db, task.ID, userID, "task_created", "", nil, task.Title)
-			created = append(created, task)
+			if len(allLabelIDs) > 0 {
+				placeholders := ""
+				for i := 0; i < len(allLabelIDs)/2; i++ {
+					if i > 0 {
+						placeholders += ", "
+					}
+					placeholders += "(?, ?)"
+				}
+				if execErr := tx.Exec("INSERT INTO task_labels (task_id, label_id) VALUES "+placeholders+" ON CONFLICT DO NOTHING", allLabelIDs...).Error; execErr != nil {
+					return execErr
+				}
+			}
+
+			for i := range tasksToCreate {
+				services.LogActivity(tx, tasksToCreate[i].ID, userID, "task_created", "", nil, tasksToCreate[i].Title)
+			}
+
+			created = tasksToCreate
+			return nil
+		})
+		if txErr != nil {
+			logger.Error("Failed to bulk create tasks", zap.Error(txErr))
+			response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to bulk create tasks")
+			return
+		}
+
+		for i := range created {
+			if len(created[i].Labels) == 0 {
+				db.Preload("Labels").First(&created[i], created[i].ID)
+			}
 		}
 
 		hub.Broadcast(&services.Event{

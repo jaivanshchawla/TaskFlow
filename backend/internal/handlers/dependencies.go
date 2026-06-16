@@ -34,6 +34,7 @@ func ListDependencies(db *gorm.DB) gin.HandlerFunc {
 			SELECT t.* FROM tasks t
 			JOIN task_dependencies td ON td.depends_on_id = t.id
 			WHERE td.task_id = ? AND t.deleted_at IS NULL
+			LIMIT 200
 		`, task.ID).Scan(&dependsOn)
 
 		// Tasks that depend on this task
@@ -42,6 +43,7 @@ func ListDependencies(db *gorm.DB) gin.HandlerFunc {
 			SELECT t.* FROM tasks t
 			JOIN task_dependencies td ON td.task_id = t.id
 			WHERE td.depends_on_id = ? AND t.deleted_at IS NULL
+			LIMIT 200
 		`, task.ID).Scan(&dependedBy)
 
 		logger.Info("Dependencies listed", zap.String("task_id", taskID))

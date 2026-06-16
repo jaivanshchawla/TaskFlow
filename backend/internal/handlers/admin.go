@@ -16,29 +16,32 @@ import (
 // AdminListUsers returns all users with task counts.
 func AdminListUsers(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var users []models.User
-		db.Preload("Preferences").Find(&users)
-
-		type UserWithStats struct {
+		type UserStats struct {
 			models.User
 			TaskCount      int64 `json:"task_count"`
 			CompletedCount int64 `json:"completed_count"`
 		}
 
-		var result []UserWithStats
-		for _, u := range users {
-			var taskCount, completedCount int64
-			db.Model(&models.Task{}).Where("user_id = ? AND deleted_at IS NULL", u.ID).Count(&taskCount)
-			db.Model(&models.Task{}).Where("user_id = ? AND status = ? AND deleted_at IS NULL", u.ID, "done").Count(&completedCount)
-			result = append(result, UserWithStats{
-				User:           u,
-				TaskCount:      taskCount,
-				CompletedCount: completedCount,
-			})
+		var userStats []UserStats
+		err := db.Raw(`
+			SELECT u.id, u.clerk_user_id, u.email, u.name, u.avatar_url, u.role, u.created_at, u.updated_at,
+				   COUNT(t.id) FILTER (WHERE t.deleted_at IS NULL) as task_count,
+				   COUNT(t2.id) FILTER (WHERE t2.status = 'done' AND t2.deleted_at IS NULL) as completed_count
+			FROM users u
+			LEFT JOIN tasks t ON t.user_id = u.id
+			LEFT JOIN tasks t2 ON t2.user_id = u.id AND t2.status = 'done'
+			WHERE u.deleted_at IS NULL
+			GROUP BY u.id
+			ORDER BY u.created_at DESC
+		`).Scan(&userStats).Error
+		if err != nil {
+			logger.Error("Failed to list users", zap.Error(err))
+			response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list users")
+			return
 		}
 
-		logger.Info("Admin listed users", zap.Int("count", len(users)))
-		response.Success(c, http.StatusOK, result)
+		logger.Info("Admin listed users", zap.Int("count", len(userStats)))
+		response.Success(c, http.StatusOK, userStats)
 	}
 }
 
@@ -95,13 +98,21 @@ func AdminListTasks(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		var total int64
-		query.Count(&total)
+		if err := query.Count(&total).Error; err != nil {
+			logger.Error("Failed to count tasks", zap.Error(err))
+			response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to count tasks")
+			return
+		}
 
 		var tasks []models.Task
-		query.Preload("Labels").Preload("Assignee").Preload("User").
+		if err := query.Preload("Labels").Preload("Assignee").Preload("User").
 			Order("tasks.created_at DESC").
 			Offset((page - 1) * perPage).Limit(perPage).
-			Find(&tasks)
+			Find(&tasks).Error; err != nil {
+			logger.Error("Failed to list tasks", zap.Error(err))
+			response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list tasks")
+			return
+		}
 
 		response.SuccessPaginated(c, tasks, page, perPage, int(total))
 	}
@@ -120,12 +131,20 @@ func AdminGetActivity(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		var total int64
-		db.Model(&models.ActivityLog{}).Count(&total)
+		if err := db.Model(&models.ActivityLog{}).Count(&total).Error; err != nil {
+			logger.Error("Failed to count activity logs", zap.Error(err))
+			response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to count activity logs")
+			return
+		}
 
 		var logs []models.ActivityLog
-		db.Order("created_at DESC").Preload("User").Preload("Task").
+		if err := db.Order("created_at DESC").Preload("User").Preload("Task").
 			Offset((page - 1) * perPage).Limit(perPage).
-			Find(&logs)
+			Find(&logs).Error; err != nil {
+			logger.Error("Failed to list activity logs", zap.Error(err))
+			response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list activity logs")
+			return
+		}
 
 		response.SuccessPaginated(c, logs, page, perPage, int(total))
 	}
@@ -137,7 +156,7 @@ func AdminGetStats(db *gorm.DB) gin.HandlerFunc {
 		var totalUsers, totalTasks, tasksToday int64
 		db.Model(&models.User{}).Count(&totalUsers)
 		db.Model(&models.Task{}).Where("deleted_at IS NULL").Count(&totalTasks)
-		db.Model(&models.Task{}).Where("deleted_at IS NULL AND DATE(created_at) = CURRENT_DATE").Count(&tasksToday)
+		db.Model(&models.Task{}).Where("deleted_at IS NULL AND created_at >= CURRENT_DATE AND created_at < CURRENT_DATE + INTERVAL '1 day'").Count(&tasksToday)
 
 		var activeUsers int64
 		db.Raw(`

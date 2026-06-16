@@ -23,7 +23,11 @@ func ListLabels(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		var labels []models.Label
-		db.Where("user_id = ?", userID).Order("created_at ASC").Find(&labels)
+		if err := db.Where("user_id = ?", userID).Order("created_at ASC").Limit(100).Find(&labels).Error; err != nil {
+			logger.Error("Failed to list labels", zap.Error(err))
+			response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list labels")
+			return
+		}
 
 		response.Success(c, http.StatusOK, labels)
 	}
@@ -100,7 +104,11 @@ func UpdateLabel(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		if len(updates) > 0 {
-			db.Model(&label).Updates(updates)
+			if err := db.Model(&label).Updates(updates).Error; err != nil {
+				logger.Error("Failed to update label", zap.Error(err))
+				response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to update label")
+				return
+			}
 		}
 
 		logger.Info("Label updated", zap.String("label_id", labelID))
@@ -125,11 +133,15 @@ func DeleteLabel(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Remove task_label associations
-		db.Exec("DELETE FROM task_labels WHERE label_id = ?", label.ID)
-
-		if err := db.Delete(&label).Error; err != nil {
-			logger.Error("Failed to delete label", zap.Error(err))
+		// Remove task_label associations and delete label in a transaction
+		txErr := db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Exec("DELETE FROM task_labels WHERE label_id = ?", label.ID).Error; err != nil {
+				return err
+			}
+			return tx.Delete(&label).Error
+		})
+		if txErr != nil {
+			logger.Error("Failed to delete label", zap.Error(txErr))
 			response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to delete label")
 			return
 		}

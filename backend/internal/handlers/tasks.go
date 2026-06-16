@@ -75,7 +75,11 @@ func ListTasks(db *gorm.DB) gin.HandlerFunc {
 
 		// Count total
 		var total int64
-		query.Count(&total)
+		if err := query.Count(&total).Error; err != nil {
+			logger.Error("Failed to count tasks", zap.String("user_id", userIDStr), zap.Error(err))
+			response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to count tasks")
+			return
+		}
 
 		// Sort
 		sortBy := c.DefaultQuery("sort_by", "created_at")
@@ -406,26 +410,38 @@ func UpdateTask(db *gorm.DB, hub *services.Hub) gin.HandlerFunc {
 		// Update labels
 		labelsChanged := false
 		if input.LabelIDs != nil {
-			db.Exec("DELETE FROM task_labels WHERE task_id = ?", task.ID)
-			if len(input.LabelIDs) > 0 {
-				labelIDs := []interface{}{}
-				for _, lid := range input.LabelIDs {
-					labelID, err := uuid.Parse(lid)
-					if err != nil {
-						continue
-					}
-					labelIDs = append(labelIDs, task.ID, labelID)
+			txErr := db.Transaction(func(tx *gorm.DB) error {
+				if err := tx.Exec("DELETE FROM task_labels WHERE task_id = ?", task.ID).Error; err != nil {
+					return err
 				}
-				if len(labelIDs) > 0 {
-					placeholders := ""
-					for i := 0; i < len(labelIDs)/2; i++ {
-						if i > 0 {
-							placeholders += ", "
+				if len(input.LabelIDs) > 0 {
+					labelIDs := []interface{}{}
+					for _, lid := range input.LabelIDs {
+						labelID, parseErr := uuid.Parse(lid)
+						if parseErr != nil {
+							continue
 						}
-						placeholders += "(?, ?)"
+						labelIDs = append(labelIDs, task.ID, labelID)
 					}
-					db.Exec("INSERT INTO task_labels (task_id, label_id) VALUES "+placeholders+" ON CONFLICT DO NOTHING", labelIDs...)
+					if len(labelIDs) > 0 {
+						placeholders := ""
+						for i := 0; i < len(labelIDs)/2; i++ {
+							if i > 0 {
+								placeholders += ", "
+							}
+							placeholders += "(?, ?)"
+						}
+						if execErr := tx.Exec("INSERT INTO task_labels (task_id, label_id) VALUES "+placeholders+" ON CONFLICT DO NOTHING", labelIDs...).Error; execErr != nil {
+							return execErr
+						}
+					}
 				}
+				return nil
+			})
+			if txErr != nil {
+				logger.Error("Failed to update task labels", zap.String("task_id", taskID), zap.Error(txErr))
+				response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to update task labels")
+				return
 			}
 			services.LogActivity(db, task.ID, userID, "label_changed", "labels", nil, len(input.LabelIDs))
 			labelsChanged = true
@@ -524,7 +540,7 @@ func ExportTasksCSV(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		var tasks []models.Task
-		query.Preload("Labels").Find(&tasks)
+		query.Preload("Labels").Limit(500).Find(&tasks)
 
 		c.Header("Content-Type", "text/csv")
 		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"taskflow-export-%s.csv\"", time.Now().Format("2006-01-02")))

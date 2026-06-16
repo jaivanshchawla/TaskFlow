@@ -31,7 +31,16 @@ export function CommandPalette() {
   const router = useRouter();
   const { commandPaletteOpen, setCommandPaletteOpen } = useUIStore();
   const [search, setSearch] = useState("");
-  const { data: searchResults } = useSearchTasks(search, commandPaletteOpen && search.length > 1);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const { data: searchResults } = useSearchTasks(debouncedSearch, commandPaletteOpen && debouncedSearch.length > 1);
   const { data: labels } = useLabels();
   const recentlyViewed = getRecentlyViewed();
 

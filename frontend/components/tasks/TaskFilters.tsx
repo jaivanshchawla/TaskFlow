@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, SlidersHorizontal, ChevronDown, ArrowUpDown, Save, Trash2 } from "lucide-react";
 import { useTaskStore } from "@/store/taskStore";
@@ -130,14 +130,27 @@ function FilterBar({
   resetFilters,
   savedFilters,
 }: FilterBarProps) {
+  const [localSearch, setLocalSearch] = useState(activeFilters.search || "");
+
+  useEffect(() => {
+    setLocalSearch(activeFilters.search || "");
+  }, [activeFilters.search]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilter("search", localSearch);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [localSearch, setFilter]);
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative flex-1 min-w-[180px] max-w-xs">
         <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
         <input
           type="text"
-          value={activeFilters.search}
-          onChange={(e) => setFilter("search", e.target.value)}
+          value={localSearch}
+          onChange={(e) => setLocalSearch(e.target.value)}
           placeholder="Search..."
           className="w-full pl-8 pr-2 py-1.5 rounded-lg text-xs outline-none"
           style={{

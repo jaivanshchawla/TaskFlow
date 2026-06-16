@@ -31,7 +31,11 @@ func ListComments(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		var comments []models.Comment
-		db.Where("task_id = ?", task.ID).Order("created_at ASC").Preload("User").Find(&comments)
+		if err := db.Where("task_id = ?", task.ID).Order("created_at ASC").Preload("User").Find(&comments).Error; err != nil {
+			logger.Error("Failed to list comments", zap.Error(err))
+			response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to list comments")
+			return
+		}
 
 		logger.Info("Comments listed", zap.String("task_id", taskID), zap.Int("count", len(comments)))
 		response.Success(c, http.StatusOK, comments)
